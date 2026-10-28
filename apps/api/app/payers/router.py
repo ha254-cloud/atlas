@@ -1,0 +1,78 @@
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
+
+from app.core.dependencies import get_current_organization
+from app.db.database import get_db
+from app.models.user import User
+from app.payers.schemas import PayerCreate, PayerRead, PayerUpdate
+from app.payers.service import PayerService
+from app.security.dependencies import require_permission
+from app.security.permissions import Permission
+
+router = APIRouter(prefix="/payers", tags=["Payer Registry"])
+
+
+@router.get("", response_model=list[PayerRead])
+def list_payers(
+    active_only: bool = True,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    _current_user: User = Depends(require_permission(Permission.VIEW_CLAIMS)),
+):
+    return PayerService(db, organization_id).list(active_only=active_only)
+
+
+@router.get("/{payer_id}", response_model=PayerRead)
+def get_payer(
+    payer_id: int,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    _current_user: User = Depends(require_permission(Permission.VIEW_CLAIMS)),
+):
+    try:
+        return PayerService(db, organization_id).get(payer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("", response_model=PayerRead, status_code=201)
+def create_payer(
+    payload: PayerCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    current_user: User = Depends(require_permission(Permission.CONFIGURE_INTEGRATIONS)),
+):
+    try:
+        return PayerService(db, organization_id).create(
+            payload,
+            actor_id=current_user.id,
+            correlation_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.patch("/{payer_id}", response_model=PayerRead)
+def update_payer(
+    payer_id: int,
+    payload: PayerUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    current_user: User = Depends(require_permission(Permission.CONFIGURE_INTEGRATIONS)),
+):
+    try:
+        return PayerService(db, organization_id).update(
+            payer_id,
+            payload,
+            actor_id=current_user.id,
+            correlation_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
+    except ValueError as exc:
+        db.rollback()
+        status_code = 404 if str(exc) == "Payer not found" else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc

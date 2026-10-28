@@ -1,0 +1,196 @@
+# Atlas Database Schema
+
+Last verified: 2026-10-28  
+Alembic head: `a1c7e4b9d2f3`
+Registered SQLAlchemy tables: 66
+
+This file is the admission registry for physical database tables. SQLAlchemy models
+and Alembic migrations remain the executable definitions of columns, constraints,
+indexes, and upgrade/rollback behavior. A migration that adds or renames a table must
+update this registry in the same change and pass the architecture contract tests.
+
+## Change Gate
+
+Before changing the physical schema:
+
+1. Confirm the canonical owner in `docs/module-registry.md`.
+2. Search this registry, ORM metadata, and every Alembic revision for an existing owner.
+3. Prefer extending an existing aggregate over creating another table.
+4. Classify the table as global, directly tenant-owned, or parent-scoped.
+5. Define foreign keys, uniqueness, indexes, retention, audit, migration, rollback,
+   and cross-tenant tests.
+6. Update this file, the model, migration, tests, and `BUILD_STATUS.md` together.
+
+Names from planning documents are business vocabulary, not permission to duplicate
+implemented tables. For example, `claim_lines` owns claim items, `appeal_submissions`
+owns submission logs/state, `invoices` owns hospital recovery invoices, and payment
+matching provenance currently belongs to `payments`. Renaming or splitting these
+requires an approved migration with a demonstrated semantic need.
+
+## Tenancy Classes
+
+- **Global**: platform root/reference data with explicitly reviewed global access.
+- **Direct**: non-null `organization_id`; every query is tenant-scoped.
+- **Parent**: ownership is enforced through a non-null foreign key to a tenant-owned
+  parent. Some parent-scoped tables also carry `organization_id` for defense in depth.
+
+## Ownership Summary
+
+| Owner | Tables | Tenancy notes |
+|---|---:|---|
+| Organizations | 2 | `organizations` is the platform root; settings are organization-scoped versions. |
+| Branches and departments | 3 | Branches are directly tenant-owned; departments and memberships enforce branch/organization consistency through composite foreign keys and also carry a direct organization_id -> organizations.id foreign key for defense in depth. |
+| Users and security | 5 | Users, invitations, API keys, and user-owned credential tokens. |
+| Patients and governance | 4 | Patient identity, consent versions, retention policies, and sessions. |
+| Claims, denials, and imports | 11 | Claims plus lines, diagnoses, validation, events, decisions, analyses, workflows, denials, and import jobs. |
+| Documents | 3 | Claim-parented evidence records, immutable versions, and append-only holds. |
+| Payers | 2 | Tenant payer registry and statistics. |
+| Appeals and submissions | 4 | Appeals and immutable versions; human-triggered submissions and events. |
+| Payments, recovery, and billing | 8 | Canonical payments, operational recovery, fee schedules, and recovery invoices. |
+| AI and Copilot | 6 | Tenant-attributed AI usage/execution and Copilot conversations/messages/confirmations. |
+| Tasks and notifications | 4 | Tasks, activities, skills, and durable task notifications. |
+| Workflows | 5 | Definitions, steps, executions, step executions, and durable event inbox. |
+| Integrations and webhooks | 8 | Connectors, credential/mapping/sync history, subscriptions, and deliveries. |
+| Audit | 1 | Immutable tenant audit evidence. |
+
+## Canonical Table Manifest
+
+The following fenced block is machine-checked against `Base.metadata`. Keep one table
+name per line in lexical order.
+
+```tables
+agent_execution_logs
+ai_analyses
+ai_call_logs
+api_keys
+appeal_submission_events
+appeal_submissions
+appeal_versions
+appeals
+audit_logs
+branch_memberships
+branches
+claim_analyses
+claim_decisions
+claim_diagnoses
+claim_events
+claim_lines
+claim_validation_issues
+claim_workflows
+claims
+copilot_confirmations
+copilot_conversations
+copilot_messages
+denial_codes
+denials
+departments
+document_holds
+document_versions
+documents
+email_verification_tokens
+import_jobs
+integration_credential_versions
+integration_mapping_fields
+integration_mapping_profiles
+integration_sync_errors
+integration_sync_runs
+integrations
+invitations
+invoice_lines
+invoices
+organization_settings_versions
+organizations
+password_reset_tokens
+patient_consents
+patients
+payer_statistics
+payers
+payments
+recoveries
+recovery_accounts
+recovery_cases
+recovery_fee_schedules
+recovery_lifecycle_events
+retention_policies
+task_activities
+task_notifications
+tasks
+user_sessions
+user_task_skills
+users
+webhook_delivery_logs
+webhook_subscriptions
+workflow_definitions
+workflow_events
+workflow_executions
+workflow_step_executions
+workflow_steps
+```
+
+## Table Ownership And Scope
+
+### Global
+
+| Table | Canonical owner | Model source |
+|---|---|---|
+| `organizations` | Organizations | `app/organizations/models.py` |
+| `denial_codes` | Denials and knowledge | `app/models/denial_code.py` |
+
+### Tables Carrying Organization ID
+
+These 53 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
+`ai_call_logs`, `api_keys`, `appeal_submission_events`, `appeal_submissions`,
+`appeal_versions`, `appeals`, `audit_logs`, `branch_memberships`, `branches`,
+`claim_analyses`, `claim_decisions`,
+`claim_events`, `claim_validation_issues`, `claim_workflows`, `claims`,
+`copilot_confirmations`, `copilot_conversations`, `copilot_messages`, `denials`,
+`departments`, `document_holds`, `document_versions`, `documents`, `import_jobs`,
+`integration_mapping_profiles`, `integration_sync_runs`,
+`integrations`, `invitations`, `invoices`, `organization_settings_versions`,
+`patient_consents`, `patients`, `payer_statistics`, `payers`, `payments`,
+`recoveries`, `recovery_accounts`,
+`recovery_cases`, `recovery_fee_schedules`, `recovery_lifecycle_events`,
+`retention_policies`, `task_activities`, `task_notifications`, `tasks`,
+`user_sessions`, `user_task_skills`, `users`, `webhook_subscriptions`,
+`workflow_definitions`, `workflow_events`, and `workflow_executions`.
+
+The physical tenant key does not replace parent validation where both keys exist.
+Semantically, root aggregates are directly tenant-owned while child/history tables
+remain parent-scoped with an additional organization key for defense in depth. Services
+must prove that referenced parents belong to the same organization.
+
+### Parent-Scoped Without Organization ID
+
+These 11 tables are queried only through their tenant-owned parent boundary.
+
+| Table | Owning parent boundary | Canonical owner |
+|---|---|---|
+| `claim_diagnoses` | `claim_id -> claims` | Claims |
+| `claim_lines` | `claim_id -> claims` | Claims |
+| `email_verification_tokens` | `user_id -> users` | Authentication |
+| `integration_credential_versions` | `integration_id -> integrations` | Integrations |
+| `integration_mapping_fields` | `profile_id -> integration_mapping_profiles` | Integrations |
+| `integration_sync_errors` | `sync_run_id -> integration_sync_runs` | Integrations |
+| `invoice_lines` | `invoice_id -> invoices` | Invoices |
+| `password_reset_tokens` | `user_id -> users` | Authentication |
+| `webhook_delivery_logs` | `subscription_id -> webhook_subscriptions` | Webhooks |
+| `workflow_step_executions` | execution and step parents | Workflow engine |
+| `workflow_steps` | `workflow_id -> workflow_definitions` | Workflow engine |
+
+## Planned Schema Work
+
+Planned tables are not admitted tables and must not appear in the canonical manifest
+until their migration is implemented and verified.
+
+| Batch | Planned capability | Constraint |
+|---|---|---|
+| One | Patient and document completion | Reuse `patients` and `documents`; add a table only for proven version/history semantics that cannot be represented safely. |
+| Foundation blocker | Branches, departments, memberships, claim branch snapshots | Requires the ADR 0003 tenant and authorization design before migration. |
+| Four | Atlas SaaS subscriptions and customer invoices | Must remain separate from hospital recovery `invoices` and recovery fee schedules. |
+| Recovery | Bulk allocation, reversals, refunds, credit notes | Must preserve immutable attribution and invoice history. |
+
+## Verification
+
+`apps/api/tests/test_architecture_contracts.py` compares this manifest with imported
+SQLAlchemy metadata. Alembic must have exactly one head, and PostgreSQL upgrade plus
+rollback/reapply rehearsal remains required for every schema change.
