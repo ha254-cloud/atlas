@@ -1,6 +1,6 @@
 # Atlas Roadmap
 
-Last reviewed: 2026-10-27
+Last reviewed: 2026-10-28
 
 This is the execution sequence for Atlas. `BUILD_STATUS.md` records current module
 state, `DATABASE_SCHEMA.md` admits physical tables, `API_SPEC.md` admits HTTP
@@ -46,18 +46,19 @@ design-partner source files, documents, payer confirmations/credentials, and pay
 reconciliation, and remains a First Design-Partner Pilot gate. Synthetic engineering
 acceptance does not claim hospital or production validation. `M1-PLT-01` engineering
 acceptance is complete. The 533/533 backend regression result is historical (2026-08-15).
-On 2026-10-27, the focused Batch One/architecture/tenant regression passed 30/30; a
-complete backend regression of 519 tests is running, so a current full-suite pass is not
-yet established. Web type-check, lint, and production build pass. The cross-page
-Patients/Claims/Documents Playwright scenario passes on desktop and 390x844 mobile.
-An isolated PostgreSQL upgrade/downgrade/re-upgrade rehearsal passes after correcting
-enum-commit ordering, the recovery-fee migration's missing column, and baseline downgrade
-cleanup; the live database remains at the sole head `d5a8c1f3e7b9`. The exact next
-engineering action remains the repository-owner checkpoint before Batch Two.
+On 2026-10-28, the complete backend regression passed 520/520 (`pytest tests/`, ~19
+minutes), the repository's first commit checkpoint was created (`80b956c`, followed by
+`1b79cf7`), the cross-page Patients/Claims/Documents Playwright scenario was re-verified
+live on both desktop (1440x900) and 390x844 mobile (2/2), web type-check, lint, and the
+26-route production build passed, and an isolated PostgreSQL upgrade -> downgrade -> re-
+upgrade rehearsal passed against a disposable database, ending at the sole live head
+`a1c7e4b9d2f3`. The repository-owner checkpoint and the remaining cross-page responsive
+scenario are both closed; see `BUILD_STATUS.md` for full evidence.
 
 ## Batch One: Patients, Claims, Documents
 
-Status: **In Progress**
+Status: **Engineering Complete** (2026-10-28). Not pilot or production certified; see
+`docs/release-plan.md` for remaining First Design-Partner Pilot gates.
 
 ### Patients
 
@@ -82,7 +83,7 @@ Status: **In Progress**
   post-commit `document.uploaded` delivery.
 - [ ] Complete signed-mapping and production-like workflow evidence during the
   First Design-Partner Pilot.
-- [ ] Run complete Batch One integration and browser regression.
+- [x] Run complete Batch One integration and browser regression.
 
 ### Documents
 
@@ -105,14 +106,14 @@ Batch exit is an engineering checkpoint, not pilot or production certification.
 Authorized real-data validation, production object-store certification, and hospital
 acceptance remain governed by `docs/release-plan.md`.
 
-- [ ] All applicable module DoD checks pass for Patients, Claims, and Documents.
+- [x] All applicable module DoD checks pass for Patients, Claims, and Documents.
 - [x] Cross-module claim/patient/document transaction and tenant tests pass.
-- [ ] PostgreSQL migration rehearsal has one head.
-- [ ] Ruff, backend regression, web type-check/build, responsive browser checks, and
+- [x] PostgreSQL migration rehearsal has one head.
+- [x] Ruff, backend regression, web type-check/build, responsive browser checks, and
   editor diagnostics pass.
-- [ ] `BUILD_STATUS.md`, `DATABASE_SCHEMA.md`, `API_SPEC.md`, and user documentation
+- [x] `BUILD_STATUS.md`, `DATABASE_SCHEMA.md`, `API_SPEC.md`, and user documentation
   reflect the shipped behavior.
-- [ ] Commit checkpoint created by the repository owner.
+- [x] Commit checkpoint created by the repository owner.
 
 ## Batch Two: Payers, Submissions, Payments
 
