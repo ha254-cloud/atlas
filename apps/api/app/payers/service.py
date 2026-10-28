@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -11,6 +12,10 @@ from app.integrations.registry import submission_registry
 from app.payers.models import Payer
 from app.payers.repository import PayerRepository
 from app.payers.schemas import PayerConfiguration, PayerCreate, PayerUpdate
+
+#: A rejected payer configuration may be revised and resubmitted; an
+#: approved one is not resubmittable without a new explicit decision.
+_SUBMITTABLE_STATUSES = {"draft", "rejected"}
 
 
 class PayerService:
@@ -92,6 +97,108 @@ class PayerService:
             before=before,
             after=self._snapshot(payer),
             reason=payload.reason,
+            correlation_id=correlation_id,
+            ip_address=ip_address,
+        )
+        self.db.commit()
+        self.db.refresh(payer)
+        return payer
+
+    def submit_for_approval(
+        self,
+        payer_id: int,
+        *,
+        actor_id: int,
+        correlation_id: str | None,
+        ip_address: str | None,
+    ) -> Payer:
+        payer = self.get(payer_id)
+        if payer.approval_status not in _SUBMITTABLE_STATUSES:
+            raise ValueError(
+                f"Payer cannot be submitted for approval from status '{payer.approval_status}'"
+            )
+        before = {"approval_status": payer.approval_status}
+        payer.approval_status = "pending_approval"
+        payer.submitted_by = actor_id
+        payer.submitted_at = datetime.now(UTC)
+        payer.rejected_by = None
+        payer.rejected_at = None
+        payer.rejection_reason = None
+        self._audit(
+            payer,
+            actor_id=actor_id,
+            action=AuditAction.PAYER_SUBMITTED_FOR_APPROVAL,
+            before=before,
+            after={"approval_status": payer.approval_status},
+            reason="Payer configuration submitted for approval",
+            correlation_id=correlation_id,
+            ip_address=ip_address,
+        )
+        self.db.commit()
+        self.db.refresh(payer)
+        return payer
+
+    def approve(
+        self,
+        payer_id: int,
+        *,
+        actor_id: int,
+        correlation_id: str | None,
+        ip_address: str | None,
+    ) -> Payer:
+        payer = self.get(payer_id)
+        if payer.approval_status != "pending_approval":
+            raise ValueError(
+                f"Payer cannot be approved from status '{payer.approval_status}'"
+            )
+        if payer.submitted_by == actor_id:
+            raise ValueError("A payer configuration cannot be approved by the same user who submitted it")
+        before = {"approval_status": payer.approval_status}
+        payer.approval_status = "approved"
+        payer.approved_by = actor_id
+        payer.approved_at = datetime.now(UTC)
+        self._audit(
+            payer,
+            actor_id=actor_id,
+            action=AuditAction.PAYER_APPROVED,
+            before=before,
+            after={"approval_status": payer.approval_status},
+            reason="Payer configuration approved",
+            correlation_id=correlation_id,
+            ip_address=ip_address,
+        )
+        self.db.commit()
+        self.db.refresh(payer)
+        return payer
+
+    def reject(
+        self,
+        payer_id: int,
+        *,
+        reason: str,
+        actor_id: int,
+        correlation_id: str | None,
+        ip_address: str | None,
+    ) -> Payer:
+        payer = self.get(payer_id)
+        if payer.approval_status != "pending_approval":
+            raise ValueError(
+                f"Payer cannot be rejected from status '{payer.approval_status}'"
+            )
+        if payer.submitted_by == actor_id:
+            raise ValueError("A payer configuration cannot be rejected by the same user who submitted it")
+        before = {"approval_status": payer.approval_status}
+        payer.approval_status = "rejected"
+        payer.rejected_by = actor_id
+        payer.rejected_at = datetime.now(UTC)
+        payer.rejection_reason = reason.strip()
+        self._audit(
+            payer,
+            actor_id=actor_id,
+            action=AuditAction.PAYER_REJECTED,
+            before=before,
+            after={"approval_status": payer.approval_status, "rejection_reason": payer.rejection_reason},
+            reason=reason.strip(),
             correlation_id=correlation_id,
             ip_address=ip_address,
         )

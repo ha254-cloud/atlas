@@ -45,3 +45,11 @@ test("patient, claim, and document workflows are reachable and responsive", asyn
   await expect(page.getByLabel("Search claims for documents")).toBeVisible();
   await expectNoPageOverflow(page);
 });
+
+test("payer approval and monitoring workflow is reachable and responsive", async ({ page }) => {
+  await page.getByTitle("Payers").click();
+  await expect(page).toHaveURL(/\/payers$/, { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Payer registry" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add payer" })).toBeVisible();
+  await expectNoPageOverflow(page);
+});

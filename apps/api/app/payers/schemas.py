@@ -1,8 +1,11 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SubmissionMethod = Literal["api", "sftp", "email", "portal", "manual"]
+ApprovalStatus = Literal["draft", "pending_approval", "approved", "rejected"]
+HealthStatus = Literal["not_configured", "healthy", "unhealthy"]
 StatusMethod = Literal["api", "portal", "email", "manual"]
 PaymentMethod = Literal[
     "api",
@@ -80,3 +83,28 @@ class PayerRead(PayerConfiguration):
 
     id: int
     organization_id: int
+    approval_status: ApprovalStatus
+    submitted_by: int | None = None
+    submitted_at: datetime | None = None
+    approved_by: int | None = None
+    approved_at: datetime | None = None
+    rejected_by: int | None = None
+    rejected_at: datetime | None = None
+    rejection_reason: str | None = None
+    last_health_checked_at: datetime | None = None
+    last_health_status: HealthStatus | None = None
+    last_health_error: str | None = None
+    health_check_failure_count: int = 0
+
+
+class PayerRejection(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class PayerHealthCheckResult(BaseModel):
+    payer_id: int
+    status: HealthStatus
+    checked_at: datetime
+    error: str | None = None
+    failure_count: int
+    latency_ms: float | None = None

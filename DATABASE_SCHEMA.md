@@ -1,7 +1,7 @@
 # Atlas Database Schema
 
 Last verified: 2026-10-28  
-Alembic head: `a1c7e4b9d2f3`
+Alembic head: `14d669265fc7`
 Registered SQLAlchemy tables: 66
 
 This file is the admission registry for physical database tables. SQLAlchemy models

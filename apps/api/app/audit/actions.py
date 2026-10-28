@@ -21,6 +21,9 @@ class AuditAction(StrEnum):
     # Payers
     PAYER_CREATED = "payer.created"
     PAYER_UPDATED = "payer.updated"
+    PAYER_SUBMITTED_FOR_APPROVAL = "payer.submitted_for_approval"
+    PAYER_APPROVED = "payer.approved"
+    PAYER_REJECTED = "payer.rejected"
 
     # Claims
     CLAIM_CREATED = "claim.created"

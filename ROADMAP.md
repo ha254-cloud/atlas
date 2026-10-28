@@ -117,11 +117,11 @@ acceptance remain governed by `docs/release-plan.md`.
 
 ## Batch Two: Payers, Submissions, Payments
 
-Status: **Not Started** for scheduled batch work; existing foundations remain maintained.
+Status: **In Progress**; first slice closed, existing foundations remain maintained.
 
 - [ ] Validate payer profiles, contracts, tariffs, and sourced rules against signed
   Kenyan design-partner records.
-- [ ] Complete payer approval and monitoring workflows plus Payers page.
+- [x] Complete payer approval and monitoring workflows plus Payers page.
 - [ ] Certify one real payer submission channel with explicit human initiation,
   acknowledgements, retries, errors, support ownership, and contract tests.
 - [ ] Add stronger settlement evidence, bulk payment allocation, reversals/refunds,

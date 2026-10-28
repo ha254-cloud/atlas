@@ -35,6 +35,7 @@ class Permission(StrEnum):
     VIEW_ANALYTICS = "view_analytics"
     MANAGE_USERS = "manage_users"
     CONFIGURE_INTEGRATIONS = "configure_integrations"
+    APPROVE_PAYERS = "approve_payers"
     MANAGE_BILLING = "manage_billing"
     VIEW_AUDIT_LOG = "view_audit_log"
     MANAGE_WORKFLOWS = "manage_workflows"
@@ -69,6 +70,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.VIEW_ANALYTICS,
         Permission.MANAGE_USERS,
         Permission.CONFIGURE_INTEGRATIONS,
+        Permission.APPROVE_PAYERS,
         Permission.VIEW_AUDIT_LOG,
         Permission.MANAGE_WORKFLOWS,
         Permission.ACCESS_COPILOT,

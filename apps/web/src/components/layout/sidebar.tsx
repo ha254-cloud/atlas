@@ -20,6 +20,7 @@ import {
   FolderOpen,
   Shield,
   Users,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/context/auth-context";
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/analytics",     label: "Analytics",           icon: BarChart3 },
   { href: "/copilot",       label: "Atlas Copilot",       icon: Compass },
   { href: "/integrations",  label: "Integrations",        icon: Plug },
+  { href: "/payers",        label: "Payers",               icon: Landmark },
   { href: "/workflows",     label: "Workflow Engine",     icon: Workflow },
   { href: "/settings",      label: "Settings",            icon: Settings },
 ];
