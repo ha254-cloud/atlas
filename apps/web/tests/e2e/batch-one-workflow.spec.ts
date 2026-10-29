@@ -192,3 +192,106 @@ test("payment settlement can be split across KES claims responsively", async ({ 
   expect(typeof allocationRequest?.idempotency_key).toBe("string");
   await expectNoPageOverflow(page);
 });
+
+test("payment settlement recovery governance is reachable and responsive", async ({ page }) => {
+  let verified = false;
+  let attributionStatus: string | null = null;
+  let interventions: Array<Record<string, unknown>> = [];
+  const paymentResponse = () => ({
+    summary: {
+      total_recovered: verified ? 700 : 0,
+      total_fees: verified ? 70 : 0,
+      net_recovered: verified ? 630 : 0,
+      payment_count: 1,
+      invoices_generated: 0,
+    },
+    payments: [
+      {
+        payment_id: 81,
+        recovery_id: 901,
+        claim_id: 701,
+        claim_number: "SHA-CLAIM-701",
+        payer: "Social Health Authority",
+        recovered_amount: 700,
+        atlas_fee: 70,
+        net_amount: 630,
+        received_at: "2026-10-15T09:30:00Z",
+        currency: "KES",
+        payment_status: "paid",
+        payment_source: "portal_export",
+        recovery_verified: verified,
+        attribution_status: attributionStatus,
+        attributed_eligible_amount: attributionStatus === "eligible" ? 700 : null,
+        invoice_id: null,
+        invoice_generated: false,
+      },
+    ],
+  });
+  await page.route("**/api/v1/payments", async (route) => {
+    await route.fulfill({ json: paymentResponse() });
+  });
+  await page.route("**/api/v1/payments/records", async (route) => {
+    await route.fulfill({ json: [] });
+  });
+  await page.route("**/api/v1/recoveries/901/verify", async (route) => {
+    verified = true;
+    await route.fulfill({ json: { id: 901, verified: true } });
+  });
+  await page.route("**/api/v1/recoveries/901/interventions", async (route) => {
+    await route.fulfill({ json: interventions });
+  });
+  await page.route("**/api/v1/recoveries/901/disputes", async (route) => {
+    await route.fulfill({ json: [] });
+  });
+  await page.route("**/api/v1/recoveries/interventions", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    interventions = [{
+      id: 301,
+      organization_id: 1,
+      claim_id: 701,
+      submission_id: null,
+      intervention_type: payload.intervention_type,
+      occurred_at: payload.occurred_at,
+      actor_id: 17,
+      reason: payload.reason,
+      correlation_id: "intervention-e2e",
+      created_at: "2026-10-16T09:30:00Z",
+    }];
+    await route.fulfill({ status: 201, json: interventions[0] });
+  });
+  await page.route("**/api/v1/recoveries/901/attributions", async (route) => {
+    attributionStatus = "eligible";
+    await route.fulfill({
+      status: 201,
+      json: {
+        id: 401,
+        recovery_id: 901,
+        intervention_id: 301,
+        version: 1,
+        status: "eligible",
+        confirmed_amount: "700.00",
+        eligible_amount: "700.00",
+        fee_percentage: "10.00",
+        vat_percentage: "5.00",
+        currency: "KES",
+        dispute_expires_at: "2026-11-15T09:30:00Z",
+        reason: "Independent finance approval",
+      },
+    });
+  });
+
+  await page.goto("/payments");
+  await page.getByRole("button", { name: "Review" }).click();
+  await expect(page.getByRole("heading", { name: "Govern recovery attribution" })).toBeVisible();
+  await page.getByRole("button", { name: "Verify recovery" }).click();
+  await expect(page.getByText(/different finance approver/)).toBeVisible();
+  await page.getByLabel("Intervention occurred at").fill("2026-10-10T08:00");
+  await page.getByRole("button", { name: "Record immutable intervention" }).click();
+  await expect(page.getByRole("button", { name: "Approve eligible attribution" })).toBeVisible();
+  await page.getByRole("button", { name: "Approve eligible attribution" }).click();
+  await expect(page.getByText(/snapshotted KES fee terms/)).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByText("eligible", { exact: true }),
+  ).toBeVisible();
+  await expectNoPageOverflow(page);
+});

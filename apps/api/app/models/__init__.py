@@ -22,6 +22,12 @@ from .payment import (
 )
 from .invoice import Invoice, InvoiceCreditNote, InvoiceLine
 from app.billing.models import RecoveryFeeSchedule
+from .recovery_attribution import (
+    RecoveryAttributionDispute,
+    RecoveryAttributionDisputeResolution,
+    RecoveryAttributionVersion,
+    RecoveryIntervention,
+)
 from .ai_analysis import AIAnalysis
 from .claim_analysis import ClaimAnalysis
 from .denial import Denial
@@ -79,6 +85,10 @@ __all__ = [
     "Invoice",
     "InvoiceCreditNote",
     "InvoiceLine",
+    "RecoveryIntervention",
+    "RecoveryAttributionVersion",
+    "RecoveryAttributionDispute",
+    "RecoveryAttributionDisputeResolution",
     "AIAnalysis",
     "ClaimAnalysis",
     "Denial",

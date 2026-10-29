@@ -4,7 +4,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.invoice import Invoice, InvoiceCreditNote
+from app.models.invoice import Invoice, InvoiceCreditNote, InvoiceReconciliationRun
 
 
 class InvoiceRepository:
@@ -50,3 +50,30 @@ class InvoiceRepository:
             )
             .first()
         )
+
+    def credit_note_for_attribution_resolution(
+        self,
+        resolution_id: int,
+    ) -> InvoiceCreditNote | None:
+        return self.db.query(InvoiceCreditNote).filter(
+            InvoiceCreditNote.organization_id == self.organization_id,
+            InvoiceCreditNote.attribution_resolution_id == resolution_id,
+        ).first()
+
+    def credit_notes_for_invoice(self, invoice_id: int) -> list[InvoiceCreditNote]:
+        return self.db.query(InvoiceCreditNote).filter(
+            InvoiceCreditNote.organization_id == self.organization_id,
+            InvoiceCreditNote.invoice_id == invoice_id,
+        ).order_by(InvoiceCreditNote.id).all()
+
+    def reconciliation_runs(
+        self,
+        invoice_id: int,
+    ) -> list[InvoiceReconciliationRun]:
+        return self.db.query(InvoiceReconciliationRun).filter(
+            InvoiceReconciliationRun.organization_id == self.organization_id,
+            InvoiceReconciliationRun.invoice_id == invoice_id,
+        ).order_by(
+            InvoiceReconciliationRun.created_at.desc(),
+            InvoiceReconciliationRun.id.desc(),
+        ).all()

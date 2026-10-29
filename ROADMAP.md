@@ -130,8 +130,13 @@ Status: **In Progress**; first slice closed, existing foundations remain maintai
     human matching provenance, audit, and post-commit event evidence.
   - [x] Add append-only settlement evidence, atomic bulk/partial allocation,
     idempotent reversal/refund, and invoice credit-note ledgers.
-  - [ ] Independently reconcile a production-like monthly settlement and invoice.
-- [ ] Complete Batch Two frontend workflows, tests, documentation, and checkpoint.
+  - [x] Independently reconcile a production-like KES monthly settlement and invoice
+    from immutable allocation, attribution, VAT, and credit-note evidence.
+  - [x] Add intervention-backed maker/checker attribution plus append-only
+    dispute/resolution and dispute-sourced credit notes.
+- [ ] Complete the Batch Two checkpoint after signed-record and certified-channel
+  acceptance.
+  - [x] Complete Batch Two engineering frontend workflows, tests, and documentation.
 
 ## Batch Three: Recovery, Appeals, AI
 

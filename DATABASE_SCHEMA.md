@@ -1,8 +1,8 @@
 # Atlas Database Schema
 
 Last verified: 2026-10-29
-Alembic head: `7c2e8a4f9b1d`
-Registered SQLAlchemy tables: 69
+Alembic head: `9f4d2c7a1b6e`
+Registered SQLAlchemy tables: 74
 
 This file is the admission registry for physical database tables. SQLAlchemy models
 and Alembic migrations remain the executable definitions of columns, constraints,
@@ -46,7 +46,7 @@ requires an approved migration with a demonstrated semantic need.
 | Documents | 3 | Claim-parented evidence records, immutable versions, and append-only holds. |
 | Payers | 2 | Tenant payer registry and statistics. |
 | Appeals and submissions | 4 | Appeals and immutable versions; human-triggered submissions and events. |
-| Payments, recovery, and billing | 11 | Canonical payments, immutable settlement/allocation evidence, operational recovery projections, fee schedules, recovery invoices, and immutable credit notes. |
+| Payments, recovery, and billing | 16 | Canonical payments, immutable settlement/allocation/intervention/attribution/dispute evidence, operational recovery projections, fee schedules, recovery invoices, credit notes, and reconciliation runs. |
 | AI and Copilot | 6 | Tenant-attributed AI usage/execution and Copilot conversations/messages/confirmations. |
 | Tasks and notifications | 4 | Tasks, activities, skills, and durable task notifications. |
 | Workflows | 5 | Definitions, steps, executions, step executions, and durable event inbox. |
@@ -98,6 +98,7 @@ integrations
 invitations
 invoice_credit_notes
 invoice_lines
+invoice_reconciliation_runs
 invoices
 organization_settings_versions
 organizations
@@ -111,8 +112,12 @@ payment_settlement_evidence
 payments
 recoveries
 recovery_accounts
+recovery_attribution_dispute_resolutions
+recovery_attribution_disputes
+recovery_attribution_versions
 recovery_cases
 recovery_fee_schedules
+recovery_interventions
 recovery_lifecycle_events
 retention_policies
 task_activities
@@ -141,7 +146,7 @@ workflow_steps
 
 ### Tables Carrying Organization ID
 
-These 56 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
+These 61 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
 `ai_call_logs`, `api_keys`, `appeal_submission_events`, `appeal_submissions`,
 `appeal_versions`, `appeals`, `audit_logs`, `branch_memberships`, `branches`,
 `claim_analyses`, `claim_decisions`,
@@ -149,11 +154,14 @@ These 56 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_an
 `copilot_confirmations`, `copilot_conversations`, `copilot_messages`, `denials`,
 `departments`, `document_holds`, `document_versions`, `documents`, `import_jobs`,
 `integration_mapping_profiles`, `integration_sync_runs`,
-`integrations`, `invitations`, `invoices`, `organization_settings_versions`,
+`integrations`, `invitations`, `invoice_reconciliation_runs`, `invoices`,
+`organization_settings_versions`,
 `patient_consents`, `patients`, `payer_statistics`, `payers`, `payment_allocations`,
 `payment_settlement_evidence`, `payments`, `invoice_credit_notes`,
-`recoveries`, `recovery_accounts`,
-`recovery_cases`, `recovery_fee_schedules`, `recovery_lifecycle_events`,
+`recoveries`, `recovery_accounts`, `recovery_attribution_dispute_resolutions`,
+`recovery_attribution_disputes`, `recovery_attribution_versions`,
+`recovery_cases`, `recovery_fee_schedules`, `recovery_interventions`,
+`recovery_lifecycle_events`,
 `retention_policies`, `task_activities`, `task_notifications`, `tasks`,
 `user_sessions`, `user_task_skills`, `users`, `webhook_subscriptions`,
 `workflow_definitions`, `workflow_events`, and `workflow_executions`.
@@ -171,6 +179,16 @@ ledger totals. `invoice_credit_notes` is directly tenant-owned and immutable; ea
 invoiced allocation adjustment can issue at most one credit note. `recoveries` now
 allows one projection per `(payment_id, claim_id)` so a payment can be split across
 claims while preserving the legacy single-claim path.
+
+`recovery_interventions`, `recovery_attribution_versions`,
+`recovery_attribution_disputes`, and
+`recovery_attribution_dispute_resolutions` are directly tenant-owned append-only
+financial evidence. Each attribution version snapshots the effective commercial
+terms and links its predecessor; disputes and resolutions never overwrite a prior
+decision. `invoice_reconciliation_runs` is directly tenant-owned and immutable,
+preserving each independent exact-money recomputation. Credit notes now have exactly
+one immutable source: either a payment-allocation adjustment or an attribution
+dispute resolution.
 
 ### Parent-Scoped Without Organization ID
 
@@ -200,7 +218,6 @@ until their migration is implemented and verified.
 | One | Patient and document completion | Reuse `patients` and `documents`; add a table only for proven version/history semantics that cannot be represented safely. |
 | Foundation blocker | Branches, departments, memberships, claim branch snapshots | Requires the ADR 0003 tenant and authorization design before migration. |
 | Four | Atlas SaaS subscriptions and customer invoices | Must remain separate from hospital recovery `invoices` and recovery fee schedules. |
-| Recovery | Bulk allocation, reversals, refunds, credit notes | Must preserve immutable attribution and invoice history. |
 
 ## Verification
 

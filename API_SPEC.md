@@ -2,7 +2,7 @@
 
 Last verified: 2026-10-29
 API version prefix: `/api/v1`  
-Registered operations: 235
+Registered operations: 245
 
 This file is the admission registry for Atlas HTTP operations. The generated FastAPI
 OpenAPI document at `/openapi.json` remains the executable source for request/response
@@ -155,6 +155,8 @@ GET /api/v1/invoices
 GET /api/v1/invoices/credit-notes
 POST /api/v1/invoices/monthly
 GET /api/v1/invoices/{invoice_id}
+GET /api/v1/invoices/{invoice_id}/reconciliations
+POST /api/v1/invoices/{invoice_id}/reconciliations
 POST /api/v1/invoices/{invoice_id}/paid
 GET /api/v1/invoices/{invoice_id}/pdf
 POST /api/v1/invoices/{invoice_id}/send
@@ -212,6 +214,14 @@ POST /api/v1/payments/records/{payment_id}/settlement-evidence
 GET /api/v1/platform-admin/hospitals
 GET /api/v1/platform-admin/summary
 GET /api/v1/recoveries
+POST /api/v1/recoveries/interventions
+GET /api/v1/recoveries/{recovery_id}
+GET /api/v1/recoveries/{recovery_id}/attributions
+POST /api/v1/recoveries/{recovery_id}/attributions
+GET /api/v1/recoveries/{recovery_id}/disputes
+POST /api/v1/recoveries/{recovery_id}/disputes
+POST /api/v1/recoveries/{recovery_id}/disputes/{dispute_id}/resolve
+GET /api/v1/recoveries/{recovery_id}/interventions
 POST /api/v1/recoveries/{recovery_id}/verify
 GET /api/v1/recovery
 GET /api/v1/recovery-workspace
@@ -302,7 +312,6 @@ these paths as callable APIs.
 |---|---|
 | Integrations | `GET /api/v1/integrations/{integration_id}/mappings`; `GET /api/v1/integrations/{integration_id}/runs`; `GET /api/v1/integrations/{integration_id}/runs/{run_id}/errors`; `POST /api/v1/integrations/{integration_id}/mappings`; `POST /api/v1/integrations/{integration_id}/mappings/preview`; `POST /api/v1/integrations/{integration_id}/runs/{run_id}/retry` |
 | Payers | `GET /api/v1/payers/{payer_id}/claims/{claim_id}/validation`; `GET /api/v1/payers/{payer_id}/contracts`; `GET /api/v1/payers/{payer_id}/intelligence`; `GET /api/v1/payers/{payer_id}/profile`; `GET /api/v1/payers/{payer_id}/rules`; `POST /api/v1/payers/{payer_id}/contracts`; `POST /api/v1/payers/{payer_id}/profile`; `POST /api/v1/payers/{payer_id}/rules` |
-| Recoveries | `GET /api/v1/recoveries/{recovery_id}/attributions`; `POST /api/v1/recoveries/interventions`; `POST /api/v1/recoveries/{recovery_id}/dispute`; `POST /api/v1/recoveries/{recovery_id}/resolve` |
 
 ## Compatibility Notes
 
@@ -346,6 +355,21 @@ these paths as callable APIs.
   balances are derived projections. If the recovery has already been invoiced, the
   same transaction issues an immutable KES credit note. `GET /api/v1/invoices/credit-notes`
   exposes those credit notes to authorized finance users.
+- Recovery verification and success-fee attribution are separate finance decisions.
+  Eligible attribution requires immutable intervention and cash evidence, snapshots
+  the effective KES fee/VAT/payment/dispute terms, and rejects self-approval by the
+  recovery verifier. Attribution corrections append versions rather than updating
+  prior decisions.
+- `POST /api/v1/recoveries/{recovery_id}/disputes` appends a disputed attribution
+  version within the configured dispute window. Resolution requires a different
+  finance actor from the opener and appends an upheld, partially upheld, or accepted
+  result plus a replacement attribution version. A reduction after invoicing issues
+  an immutable credit note in the same transaction.
+- `POST /api/v1/invoices/{invoice_id}/reconciliations` persists an immutable,
+  tenant-scoped independent recomputation from allocation, attribution, invoice-line,
+  VAT, and credit-note evidence. It reports exact KES discrepancies rather than
+  returning a success-shaped fallback; prior runs remain available through the GET
+  operation.
 - `GET /api/v1/payments/claims/{claim_id}/tracking` is a tenant-scoped claim read model
   over appeal, submission, matched payment, verified recovery, and invoice evidence.
   AI estimates and unverified recovery records never complete financial stages.

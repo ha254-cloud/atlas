@@ -51,3 +51,12 @@ class Recovery(Base, TimestampMixin):
     submission = relationship("Submission")
     payment = relationship("Payment", back_populates="recoveries")
     invoice_line = relationship("InvoiceLine", back_populates="recovery", uselist=False)
+    attribution_versions = relationship(
+        "RecoveryAttributionVersion",
+        order_by="RecoveryAttributionVersion.version",
+        foreign_keys="RecoveryAttributionVersion.recovery_id",
+    )
+
+    @property
+    def current_attribution(self):
+        return self.attribution_versions[-1] if self.attribution_versions else None

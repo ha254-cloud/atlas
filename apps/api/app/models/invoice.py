@@ -4,6 +4,8 @@ from enum import StrEnum
 
 from sqlalchemy import (
     DDL,
+    JSON,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -90,6 +92,12 @@ class InvoiceLine(Base):
     claim_id: Mapped[int] = mapped_column(
         ForeignKey("claims.id"), nullable=False, index=True
     )
+    attribution_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recovery_attribution_versions.id"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
     recovered_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     fee_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
     fee_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
@@ -99,6 +107,7 @@ class InvoiceLine(Base):
     recovery = relationship("Recovery", back_populates="invoice_line")
     payment = relationship("Payment")
     claim = relationship("Claim")
+    attribution_version = relationship("RecoveryAttributionVersion")
 
 
 class InvoiceCreditNote(Base):
@@ -110,6 +119,16 @@ class InvoiceCreditNote(Base):
             "organization_id",
             "payment_allocation_id",
             name="uq_invoice_credit_notes_org_allocation",
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "attribution_resolution_id",
+            name="uq_invoice_credit_notes_org_attribution_resolution",
+        ),
+        CheckConstraint(
+            "(payment_allocation_id IS NOT NULL) <> "
+            "(attribution_resolution_id IS NOT NULL)",
+            name="ck_invoice_credit_notes_single_source",
         ),
         UniqueConstraint(
             "organization_id",
@@ -128,8 +147,13 @@ class InvoiceCreditNote(Base):
     invoice_line_id: Mapped[int] = mapped_column(
         ForeignKey("invoice_lines.id"), nullable=False, index=True
     )
-    payment_allocation_id: Mapped[int] = mapped_column(
-        ForeignKey("payment_allocations.id"), nullable=False, index=True
+    payment_allocation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("payment_allocations.id"), nullable=True, index=True
+    )
+    attribution_resolution_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recovery_attribution_dispute_resolutions.id"),
+        nullable=True,
+        index=True,
     )
     credit_note_number: Mapped[str] = mapped_column(String(50), nullable=False)
     adjustment_type: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -156,6 +180,48 @@ class InvoiceCreditNote(Base):
     invoice = relationship("Invoice")
     invoice_line = relationship("InvoiceLine")
     payment_allocation = relationship("PaymentAllocation")
+    attribution_resolution = relationship("RecoveryAttributionDisputeResolution")
+
+
+class InvoiceReconciliationRun(Base):
+    """Immutable independent recomputation of one recovery invoice."""
+
+    __tablename__ = "invoice_reconciliation_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id"), nullable=False, index=True
+    )
+    invoice_id: Mapped[int] = mapped_column(
+        ForeignKey("invoices.id"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    source_payment_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    expected_recovered_amount: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), nullable=False
+    )
+    actual_recovered_amount: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), nullable=False
+    )
+    expected_fee_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    actual_fee_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    expected_vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    actual_vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    credit_note_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    expected_net_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    actual_net_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    discrepancy_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    discrepancy_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    details: Mapped[dict] = mapped_column(JSON, nullable=False)
+    run_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    correlation_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    invoice = relationship("Invoice")
 
 
 event.listen(
@@ -165,6 +231,24 @@ event.listen(
         "CREATE TRIGGER invoice_credit_notes_no_update BEFORE UPDATE ON "
         "invoice_credit_notes BEGIN SELECT RAISE(ABORT, "
         "'invoice credit notes are immutable'); END"
+    ).execute_if(dialect="sqlite"),
+)
+event.listen(
+    InvoiceReconciliationRun.__table__,
+    "after_create",
+    DDL(
+        "CREATE TRIGGER invoice_reconciliation_runs_no_update BEFORE UPDATE ON "
+        "invoice_reconciliation_runs BEGIN SELECT RAISE(ABORT, "
+        "'invoice reconciliation runs are immutable'); END"
+    ).execute_if(dialect="sqlite"),
+)
+event.listen(
+    InvoiceReconciliationRun.__table__,
+    "after_create",
+    DDL(
+        "CREATE TRIGGER invoice_reconciliation_runs_no_delete BEFORE DELETE ON "
+        "invoice_reconciliation_runs BEGIN SELECT RAISE(ABORT, "
+        "'invoice reconciliation runs are immutable'); END"
     ).execute_if(dialect="sqlite"),
 )
 event.listen(

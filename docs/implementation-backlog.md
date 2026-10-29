@@ -224,7 +224,9 @@ Engineering status: **Complete on 2026-08-14; not pilot certified.**
   permissions, tests, API/admin composition, and documentation.
 - Required evidence: organization and branch isolation, immutable claim snapshots,
   migration rehearsal, authenticated administration acceptance.
-- Engineering status: complete on 2026-08-14 with the registered `branches/` owner,
+- Engineering status: complete on 2026-08-14 with the registered `branches/` owner.
+  The following 72-table/241-operation/`d5a8c1f3e7b9` figures are the preserved
+  Batch One exit snapshot, not the current architecture registry. Evidence included
   tenant-safe composite ownership, branch-scoped Claims, canonical branch/currency
   round-trip behavior, Settings administration, responsive Claim selectors, 533/533
   complete backend tests, web build, browser acceptance, 72 registered
@@ -268,6 +270,11 @@ Batch: Payers, Submissions, Payments. Blocked until Milestone 1 exits.
   idempotent retry, unmatched remediation, immutable provenance.
 - Evidence: exact-money tests, many-to-many allocation cases, cross-tenant denial,
   reversal reconciliation, independently checked totals.
+- Engineering status: complete on 2026-10-29 through immutable settlement and
+  allocation ledgers, intervention-backed attribution versions, maker-checker
+  dispute resolution, allocation- and dispute-sourced credit notes, and immutable
+  independent KES invoice reconciliation runs. External finance acceptance remains
+  part of the Batch Two exit.
 
 ### M2 Exit Evidence
 

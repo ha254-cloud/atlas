@@ -20,6 +20,8 @@ export interface PaymentRecord {
   payment_status: string;
   payment_source: string;
   recovery_verified: boolean;
+  attribution_status: "eligible" | "ineligible" | "disputed" | null;
+  attributed_eligible_amount: number | null;
   invoice_id: number | null;
   invoice_generated: boolean;
 }
@@ -127,4 +129,54 @@ export interface PaymentAllocationBatch {
   created: boolean;
   allocated_amount: string;
   unallocated_amount: string;
+}
+
+export interface RecoveryIntervention {
+  id: number;
+  organization_id: number;
+  claim_id: number;
+  submission_id: number | null;
+  intervention_type: string;
+  occurred_at: string;
+  actor_id: number | null;
+  reason: string;
+  correlation_id: string | null;
+  created_at: string;
+}
+
+export interface RecoveryAttribution {
+  id: number;
+  recovery_id: number;
+  intervention_id: number | null;
+  version: number;
+  status: "eligible" | "ineligible" | "disputed";
+  confirmed_amount: string;
+  eligible_amount: string;
+  fee_percentage: string;
+  vat_percentage: string;
+  currency: string;
+  dispute_expires_at: string;
+  reason: string;
+}
+
+export interface RecoveryDisputeResolution {
+  id: number;
+  eligible_amount: string;
+  outcome: "upheld" | "partially_upheld" | "accepted";
+}
+
+export interface RecoveryDispute {
+  id: number;
+  recovery_id: number;
+  attribution_version_id: number;
+  opened_by: number;
+  reason: string;
+  opened_at: string;
+  resolution: RecoveryDisputeResolution | null;
+}
+
+export interface RecoveryDisputeResolutionResult {
+  resolution: RecoveryDisputeResolution;
+  attribution: RecoveryAttribution;
+  credit_note_id: number | null;
 }

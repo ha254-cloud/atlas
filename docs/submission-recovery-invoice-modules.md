@@ -20,11 +20,13 @@ Public API endpoints are:
   `GET /api/v1/submissions/{submission_id}`,
   `POST /api/v1/submissions/{submission_id}/refresh`, and
   `POST /api/v1/submissions/{submission_id}/cancel`.
-- Recoveries: `GET /api/v1/recoveries` and
-  `POST /api/v1/recoveries/{recovery_id}/verify`.
+- Recoveries: tenant-scoped recovery reads and verification, immutable intervention
+  recording, attribution-version decisions, dispute listing/opening, and
+  maker-checker resolution under `/api/v1/recoveries`.
 - Invoices: `POST /api/v1/invoices/monthly`, `GET /api/v1/invoices`,
   `GET /api/v1/invoices/{invoice_id}`, `POST /api/v1/invoices/{invoice_id}/send`,
-  and `POST /api/v1/invoices/{invoice_id}/paid`.
+  `POST /api/v1/invoices/{invoice_id}/paid`, and immutable reconciliation runs under
+  `/api/v1/invoices/{invoice_id}/reconciliations`.
 
 All endpoints require authentication and their configured claims, appeals, or
 billing permission.
@@ -76,6 +78,19 @@ If an adjustment affects an invoiced recovery, Payments synchronously asks Invoi
 to issue a credit note in the same transaction because the financial correction must
 be atomic; this is the documented exception to event-only cross-domain coordination.
 
+Recovery verification and fee attribution are separate decisions. An eligible
+attribution requires cash-confirmed settlement evidence plus an immutable Atlas
+intervention, and the attribution approver cannot be the recovery verifier. Every
+decision snapshots confirmed/eligible/excluded/reversed amounts and the effective
+fee, VAT, currency, payment terms, and dispute deadline. A dispute appends a disputed
+version; a different finance actor must resolve it by upholding, partially upholding,
+or accepting it. Resolution appends a replacement version and, when an existing
+invoice is reduced, creates a credit note atomically.
+
+Invoice reconciliation is an independent append-only run. It recomputes allocation
+cash, attributed eligibility, line fees, VAT, allocation/dispute credit notes, and
+net payable amount from immutable evidence and records explicit discrepancies.
+
 ## Events and Audit State
 
 Submission lifecycle changes create submission event records and publish the
@@ -83,28 +98,30 @@ implemented submission lifecycle events. Status and payment changes also write
 the existing claim timeline events, and payment detection publishes the existing
 payment event before recovery attribution.
 
-Payment ingestion and manual matching record actor, before/after values, reason,
-organization, and correlation ID through the platform audit writer. Recovery
-verification and invoice generation, sending, and payment update their persisted
-domain records, but complete mutation audit and correlation-ID propagation are not
-yet consistent across every recovery and invoice mutation and remain release-blocking
-work.
+Payment, recovery verification, intervention, attribution, dispute, resolution,
+credit-note, and reconciliation mutations record actor, before/after values, reason,
+organization, and correlation ID through the platform audit writer. Their domain
+events publish only after commit. Invoice generation, sending, and payment status
+still require consistent mutation audit/correlation treatment before production.
 
 ## Partner Billing Readiness
 
 The current payment-to-recovery path is an orchestration proof. A matched positive
 payment in `paid` or `partial` state creates an unverified recovery, and a human must
-verify it before monthly invoice inclusion. That rule is not sufficient evidence for
-production success-fee billing. Deterministic candidate matching and human provenance
-are now implemented together with append-only settlement evidence, atomic bulk/partial
-allocation, reversal/refund, and immutable credit notes. Recovery dispute/resolution,
-independent production reconciliation, and design-partner acceptance remain open.
+verify it before monthly invoice inclusion. Verification alone is not sufficient for invoice inclusion: the latest attribution
+must be eligible. Deterministic matching and human provenance now continue through
+append-only settlement, allocation, intervention, attribution, dispute/resolution,
+credit-note, and independent reconciliation evidence. Design-partner signed-record,
+real-channel, and external finance acceptance remain open.
 Production contingency invoices remain blocked until those controls and
 [ADR 0004](adr/0004-revenue-recovery-partner-operating-model.md) pass.
 
 ## Operations And Rollback
 
-Migration `7c2e8a4f9b1d` creates the three directly tenant-owned ledgers, backfills
+Migration `7c2e8a4f9b1d` creates the settlement ledgers and migration
+`9f4d2c7a1b6e` completes predecessor-linked attribution, dispute/resolution,
+dispute-sourced credit notes, and immutable invoice reconciliation runs. The earlier
+migration backfills
 source evidence and allocations from canonical Payment/Recovery records, and changes
 Recovery uniqueness from payment-only to payment-plus-claim. Deploy database, API,
 workers, then web. Application rollback is compatible while the new tables remain.

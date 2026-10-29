@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,6 +18,7 @@ class InvoiceLineRead(BaseModel):
     recovery_id: int
     payment_id: int
     claim_id: int
+    attribution_version_id: int | None
     payment_date: date
     recovered_amount: float
     fee_percentage: float
@@ -54,7 +56,8 @@ class InvoiceCreditNoteRead(BaseModel):
     organization_id: int
     invoice_id: int
     invoice_line_id: int
-    payment_allocation_id: int
+    payment_allocation_id: int | None
+    attribution_resolution_id: int | None
     credit_note_number: str
     adjustment_type: str
     recovered_adjustment_amount: float
@@ -66,3 +69,36 @@ class InvoiceCreditNoteRead(BaseModel):
     issued_by: int
     correlation_id: str
     issued_at: datetime
+
+
+class InvoiceReconciliationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class InvoiceReconciliationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    invoice_id: int
+    status: str
+    source_payment_amount: Decimal
+    expected_recovered_amount: Decimal
+    actual_recovered_amount: Decimal
+    expected_fee_amount: Decimal
+    actual_fee_amount: Decimal
+    expected_vat_amount: Decimal
+    actual_vat_amount: Decimal
+    credit_note_amount: Decimal
+    expected_net_amount: Decimal
+    actual_net_amount: Decimal
+    discrepancy_amount: Decimal
+    discrepancy_count: int
+    currency: str
+    details: dict
+    run_by: int
+    reason: str
+    correlation_id: str
+    created_at: datetime

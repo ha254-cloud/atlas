@@ -74,6 +74,11 @@ class AuditAction(StrEnum):
     PAYMENT_ALLOCATION_ADJUSTED = "payment.allocation_adjusted"
     INVOICE_CREDIT_NOTE_ISSUED = "invoice.credit_note_issued"
     RECOVERY_VERIFIED = "recovery.verified"
+    RECOVERY_INTERVENTION_RECORDED = "recovery.intervention_recorded"
+    RECOVERY_ATTRIBUTION_DECIDED = "recovery.attribution_decided"
+    RECOVERY_ATTRIBUTION_DISPUTED = "recovery.attribution_disputed"
+    RECOVERY_ATTRIBUTION_DISPUTE_RESOLVED = "recovery.attribution_dispute_resolved"
+    INVOICE_RECONCILED = "invoice.reconciled"
     RECOVERY_FEE_CONFIGURED = "recovery.fee_configured"
 
     # Imports

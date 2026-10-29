@@ -82,6 +82,9 @@ approval before production invoicing.
 12. **Verify and dispute**: hospital finance verifies the match and attribution.
     A configured dispute window follows. Disputed items are excluded from invoices;
     resolved changes append a new version rather than overwriting financial history.
+    If an undisputed item was already invoiced and is then disputed within the
+    configured window, a resolution that reduces eligibility issues an immutable
+    credit note in the same transaction.
 13. **Invoice**: group undisputed, verified attribution versions by organization,
     legal entity, currency, tax treatment, and billing period. Each line shows claim,
     payer, settled amount, eligible amount, intervention, fee rule, fee, and evidence.

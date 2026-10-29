@@ -62,6 +62,8 @@ class PaymentRead(BaseModel):
     payment_status: str
     payment_source: str
     recovery_verified: bool
+    attribution_status: str | None
+    attributed_eligible_amount: float | None
     invoice_id: int | None
     invoice_generated: bool
 
@@ -110,6 +112,7 @@ def list_payments(
             recovered = float(recovery.recovered_amount)
             fee = float(recovery.atlas_fee_amount)
             invoice_line = recovery.invoice_line
+            attribution = recovery.current_attribution
             payments.append(
                 PaymentRead(
                     payment_id=row.id,
@@ -128,6 +131,12 @@ def list_payments(
                     payment_status=row.status.value,
                     payment_source=row.source.value,
                     recovery_verified=recovery.verified,
+                    attribution_status=attribution.status if attribution else None,
+                    attributed_eligible_amount=(
+                        float(attribution.eligible_amount)
+                        if attribution is not None
+                        else None
+                    ),
                     invoice_id=invoice_line.invoice_id if invoice_line else None,
                     invoice_generated=invoice_line is not None,
                 )

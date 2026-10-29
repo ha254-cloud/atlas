@@ -13,13 +13,24 @@ class RecoveryBillingService:
         self.currency = currency
 
     def readiness(self, period_start: date, period_end: date) -> BillingReadinessRead:
-        recoveries = self.repository.verified_uninvoiced(period_start, period_end)
-        recovered = sum((item.recovered_amount for item in recoveries), Decimal(0))
-        fees = sum((item.atlas_fee_amount for item in recoveries), Decimal(0))
+        rows = self.repository.attributable_uninvoiced(period_start, period_end)
+        recovered = sum(
+            (attribution.eligible_amount for _, attribution in rows),
+            Decimal(0),
+        )
+        fees = sum(
+            (
+                attribution.eligible_amount
+                * attribution.fee_percentage
+                / Decimal("100")
+                for _, attribution in rows
+            ),
+            Decimal(0),
+        )
         return BillingReadinessRead(
             currency=self.currency,
-            verified_uninvoiced_recovery_count=len(recoveries),
+            verified_uninvoiced_recovery_count=len(rows),
             recovered_amount=recovered,
             atlas_fee_amount=fees,
-            ready=bool(recoveries),
+            ready=bool(rows),
         )

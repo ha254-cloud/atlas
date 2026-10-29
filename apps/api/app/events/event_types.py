@@ -26,6 +26,18 @@ class EventType(str, Enum):
 
     INVOICE_CREDIT_NOTE_ISSUED = "invoice.credit_note_issued"
 
+    RECOVERY_VERIFIED = "recovery.verified"
+
+    RECOVERY_INTERVENTION_RECORDED = "recovery.intervention_recorded"
+
+    RECOVERY_ATTRIBUTION_DECIDED = "recovery.attribution_decided"
+
+    RECOVERY_ATTRIBUTION_DISPUTED = "recovery.attribution_disputed"
+
+    RECOVERY_ATTRIBUTION_DISPUTE_RESOLVED = "recovery.attribution_dispute_resolved"
+
+    INVOICE_RECONCILED = "invoice.reconciled"
+
     CLAIMS_SYNCED = "claims.synced"
 
     SYNC_FAILED = "sync.failed"

@@ -69,19 +69,19 @@ documented rollback path. Pilot rollout scope does not permit single-tenant code
 
 - [ ] Complete a workflow study with one Kenyan design partner using representative HIS exports, payer responses, documents, approvals, and payment reports.
 - [ ] Agree a design-partner commercial schedule covering onboarding, retainer, recovery eligibility, fee rules, exclusions, evidence standard, dispute window, VAT review, and service levels.
-- [ ] Replace payment-timing attribution with append-only intervention,
+- [x] Replace payment-timing attribution with append-only intervention,
       payment-allocation, settlement-evidence, and attribution-version ledgers.
 - [x] Restore deterministic same-tenant unmatched-payment candidates and persist human
       matching provenance, audit, and post-commit event evidence.
-- [ ] Add bulk/partial payment allocation, reversal/refund, recovery
+- [x] Add bulk/partial payment allocation, reversal/refund, recovery
       dispute/resolution, and invoice credit-note workflows.
   - [x] Add bulk/partial payment allocation, reversal/refund, and immutable invoice
         credit-note workflows.
-  - [ ] Complete recovery dispute/resolution workflow and independent production-like
+  - [x] Complete recovery dispute/resolution workflow and independent production-like
         monthly reconciliation.
-- [ ] Reconcile one production-like monthly invoice independently from immutable claim, intervention, payment, contract, and verification evidence.
-- [ ] Add tenant-owned branches, branch memberships, departments, claim branch/currency snapshots, and cross-branch authorization tests.
-- [ ] Add reusable CSV/Excel import profiles, row-level remediation, idempotent retries, and authorized CSV/Excel exports.
+- [x] Reconcile one production-like monthly invoice independently from immutable claim, intervention, payment, contract, and verification evidence.
+- [x] Add tenant-owned branches, branch memberships, departments, claim branch/currency snapshots, and cross-branch authorization tests.
+- [x] Add reusable CSV/Excel import profiles, row-level remediation, idempotent retries, and authorized CSV/Excel exports.
 - [ ] Replace the global-only denial catalog with layered, versioned country/payer/organization reasons and reviewed provenance.
 - [ ] Publish Kenya Knowledge Pack v1 with evaluation evidence and version attribution in AI outputs.
 - [x] Complete module layering for submissions, recoveries, and invoices with dedicated repositories and module-owned services/docs.

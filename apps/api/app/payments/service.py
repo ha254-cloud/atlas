@@ -489,6 +489,9 @@ class PaymentService:
             payment=payment,
             claim_id=claim.id,
             net_amount=net_amount,
+            actor_id=actor_id,
+            reason=payload.reason,
+            correlation_id=correlation_id,
         )
         credit_note = InvoiceService(
             self.db,

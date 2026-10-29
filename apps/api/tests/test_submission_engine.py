@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
 import pytest
@@ -117,6 +117,11 @@ def test_mock_submission_to_recovery_and_monthly_invoice(db, approved_appeal):
     from app.models.invoice import InvoiceStatus
     from app.models.recovery import Recovery
     from app.models.submission import SubmissionEvent, SubmissionStatus
+    from app.models.user import User, UserRole
+    from app.recoveries.schemas import (
+        RecoveryAttributionCreate,
+        RecoveryInterventionCreate,
+    )
     from app.services.invoice_service import InvoiceService
     from app.services.recovery_service import RecoveryAttributionService
     from app.submissions.service import SubmissionService
@@ -149,10 +154,46 @@ def test_mock_submission_to_recovery_and_monthly_invoice(db, approved_appeal):
     assert recovery.atlas_fee_amount == Decimal("400.00")
     assert recovery.verified is False
 
-    RecoveryAttributionService(db, organization.id).verify(
+    attribution_service = RecoveryAttributionService(db, organization.id)
+    attribution_service.verify(
         recovery.id,
         verified_by=user.id,
         reason="Payment reconciled to remittance",
+    )
+    approver = User(
+        organization_id=organization.id,
+        email="approver@atlas.test",
+        password_hash="x",
+        first_name="Independent",
+        last_name="Approver",
+        role=UserRole.ADMIN,
+    )
+    db.add(approver)
+    db.flush()
+    intervention = attribution_service.record_intervention(
+        RecoveryInterventionCreate(
+            claim_id=claim.id,
+            submission_id=submission.id,
+            intervention_type="appeal_submission",
+            occurred_at=datetime.combine(
+                recovery.payment_date,
+                time.min,
+                tzinfo=UTC,
+            ),
+            reason="Approved appeal preceded the payer settlement",
+        ),
+        actor_id=user.id,
+        correlation_id="submission-intervention",
+    )
+    attribution_service.decide_attribution(
+        recovery.id,
+        RecoveryAttributionCreate(
+            status="eligible",
+            intervention_id=intervention.id,
+            reason="Independent finance attribution approval",
+        ),
+        actor_id=approver.id,
+        correlation_id="submission-attribution",
     )
     db.commit()
     invoice_service = InvoiceService(db, organization.id)
@@ -255,8 +296,10 @@ def test_submission_events_and_timeline_follow_status_changes(
     assert ClaimEventType.APPEAL_STATUS_UPDATED in timeline
 
 
-def test_submission_recovery_and_invoice_api(client, approved_appeal):
-    _, _, _, appeal = approved_appeal
+def test_submission_recovery_and_invoice_api(client, db, approved_appeal):
+    organization, _, claim, appeal = approved_appeal
+    from app.models.user import User, UserRole
+
     response = client.post(
         f"/api/v1/appeals/{appeal.id}/submissions",
         json={
@@ -293,6 +336,38 @@ def test_submission_recovery_and_invoice_api(client, approved_appeal):
     assert verified.json()["verified"] is True
 
     payment_date = recovery["payment_date"].split("-")
+    intervention = client.post(
+        "/api/v1/recoveries/interventions",
+        json={
+            "claim_id": claim.id,
+            "submission_id": submission["id"],
+            "intervention_type": "appeal_submission",
+            "occurred_at": f"{recovery['payment_date']}T00:00:00Z",
+            "reason": "Approved appeal preceded the payer settlement",
+        },
+    )
+    assert intervention.status_code == 201
+    approver = User(
+        organization_id=organization.id,
+        email="api-approver@atlas.test",
+        password_hash="x",
+        first_name="API",
+        last_name="Approver",
+        role=UserRole.ADMIN,
+    )
+    db.add(approver)
+    db.commit()
+    app.dependency_overrides[get_current_user] = lambda: approver
+    attributed = client.post(
+        f"/api/v1/recoveries/{recovery['id']}/attributions",
+        json={
+            "status": "eligible",
+            "intervention_id": intervention.json()["id"],
+            "reason": "Independent finance attribution approval",
+        },
+    )
+    assert attributed.status_code == 201
+
     invoice = client.post(
         "/api/v1/invoices/monthly",
         json={"year": int(payment_date[0]), "month": int(payment_date[1])},
