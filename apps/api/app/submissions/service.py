@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 import app.integrations.mock  # noqa: F401 - registers built-in submission connectors
 from app.appeals.service import AppealService
-from app.billing.service import RecoveryFeeScheduleService
 from app.claims.timeline import ClaimTimeline
 from app.events.event_types import EventType
 from app.events.publisher import EventPublisher
@@ -340,10 +339,6 @@ class SubmissionService:
             recovery_case.atlas_fee = paid_amount * Decimal("0.05")
             recovery_case.payment_received_at = datetime.utcnow()
             recovery_case.status = RecoveryStatus.RECOVERED
-        fee_schedule = RecoveryFeeScheduleService(
-            self.db,
-            self.organization_id,
-        ).effective_on(date.today())
         result = PaymentService(self.db, self.organization_id).ingest(PaymentIngest(
             claim_id=claim.id,
             submission_id=submission.id,
@@ -356,7 +351,7 @@ class SubmissionService:
             expected_amount=claim.billed_amount or Decimal("0"),
             paid_amount=paid_amount,
             adjustment_amount=(claim.billed_amount or Decimal("0")) - paid_amount,
-            currency=fee_schedule.currency,
+            currency=claim.currency,
             payment_method=submission.connector,
             status=PaymentStatus.PAID,
             source=PaymentSource.API,

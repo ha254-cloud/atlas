@@ -70,6 +70,8 @@ documented rollback path. Pilot rollout scope does not permit single-tenant code
 - [ ] Complete a workflow study with one Kenyan design partner using representative HIS exports, payer responses, documents, approvals, and payment reports.
 - [ ] Agree a design-partner commercial schedule covering onboarding, retainer, recovery eligibility, fee rules, exclusions, evidence standard, dispute window, VAT review, and service levels.
 - [ ] Replace payment-timing attribution with append-only intervention, payment-allocation, settlement-evidence, and attribution-version ledgers.
+- [x] Restore deterministic same-tenant unmatched-payment candidates and persist human
+      matching provenance, audit, and post-commit event evidence.
 - [ ] Add bulk/partial payment allocation, reversal/refund, recovery dispute/resolution, and invoice credit-note workflows.
 - [ ] Reconcile one production-like monthly invoice independently from immutable claim, intervention, payment, contract, and verification evidence.
 - [ ] Add tenant-owned branches, branch memberships, departments, claim branch/currency snapshots, and cross-branch authorization tests.

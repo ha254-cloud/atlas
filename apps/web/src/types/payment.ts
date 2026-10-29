@@ -89,6 +89,7 @@ export interface PaymentMatchCandidate {
   billed_amount: string;
   paid_amount: string;
   outstanding_amount: string;
+  currency: string;
   confidence: number;
   reasons: string[];
 }

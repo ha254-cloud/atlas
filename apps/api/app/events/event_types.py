@@ -16,6 +16,8 @@ class EventType(str, Enum):
 
     PAYMENT_POSTED = "payment.posted"
 
+    PAYMENT_MATCHED = "payment.matched"
+
     CLAIMS_SYNCED = "claims.synced"
 
     SYNC_FAILED = "sync.failed"

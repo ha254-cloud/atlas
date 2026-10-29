@@ -126,6 +126,10 @@ Status: **In Progress**; first slice closed, existing foundations remain maintai
   acknowledgements, retries, errors, support ownership, and contract tests.
 - [ ] Add stronger settlement evidence, bulk payment allocation, reversals/refunds,
   idempotent retry, and production reconciliation.
+  - [x] Restore deterministic tenant-scoped unmatched-payment candidates and persist
+    human matching provenance, audit, and post-commit event evidence.
+  - [ ] Add append-only settlement evidence, bulk/partial allocation,
+    reversal/refund, credit-note, and production reconciliation ledgers.
 - [ ] Complete Batch Two frontend workflows, tests, documentation, and checkpoint.
 
 ## Batch Three: Recovery, Appeals, AI

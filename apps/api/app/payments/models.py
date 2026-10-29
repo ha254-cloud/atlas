@@ -80,10 +80,16 @@ class Payment(Base, TimestampMixin):
     matched_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    matched_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    matching_method: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    matching_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     correlation_id: Mapped[str] = mapped_column(
         String(36), nullable=False, unique=True, index=True
     )
 
     claim = relationship("Claim")
     submission = relationship("Submission")
+    matched_by = relationship("User", foreign_keys=[matched_by_id])
     recovery = relationship("Recovery", back_populates="payment", uselist=False)

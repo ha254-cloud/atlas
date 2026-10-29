@@ -45,7 +45,7 @@ def approved_appeal(db):
         organization_id=organization.id,
         fee_percentage=Decimal("5.00"),
         vat_percentage=Decimal("5.00"),
-        currency="USD",
+        currency="KES",
         payment_terms_days=30,
         effective_from=date(2020, 1, 1),
         reason="Test recovery contract",
@@ -80,6 +80,7 @@ def approved_appeal(db):
         status="denied",
         billed_amount=Decimal("10000.00"),
         paid_amount=Decimal("0.00"),
+        currency="KES",
         service_date=date(2026, 7, 1),
     )
     db.add(claim)
@@ -163,7 +164,7 @@ def test_mock_submission_to_recovery_and_monthly_invoice(db, approved_appeal):
     assert invoice.total_fee_amount == Decimal("400.00")
     assert invoice.vat_amount == Decimal("20.00")
     assert invoice.total_amount == Decimal("420.00")
-    assert invoice.currency == "USD"
+    assert invoice.currency == "KES"
     assert invoice.pdf_path is not None
     assert len(invoice.lines) == 1
     assert invoice.lines[0].claim_id == claim.id

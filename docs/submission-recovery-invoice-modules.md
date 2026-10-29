@@ -9,6 +9,11 @@ domain behavior.
 
 Public API endpoints are:
 
+- Payments: `GET /api/v1/payments`, `POST /api/v1/payments`,
+  `GET /api/v1/payments/records`,
+  `GET /api/v1/payments/records/{payment_id}`,
+  `GET /api/v1/payments/records/{payment_id}/candidates`, and
+  `POST /api/v1/payments/records/{payment_id}/match`.
 - Submissions: `GET /api/v1/submission-connectors`,
   `POST /api/v1/appeals/{appeal_id}/submissions`, `GET /api/v1/submissions`,
   `GET /api/v1/submissions/{submission_id}`,
@@ -34,6 +39,13 @@ tenant-owned payer configuration first. The payer can bind a registered connecto
 tenant integration or declare a manual, email, or portal workflow without pretending
 that an automated transport exists. Payment reports from CSV, Excel, payer portals,
 email, API/SFTP, and manual entry converge on the same payment and recovery services.
+Unmatched payment candidates are deterministic and tenant-scoped: currency must
+match, and confidence derives only from a claim reference in the canonical payload,
+normalized payer name, and exact or within-outstanding amount evidence. A human with
+`manage_billing` must supply a reason before confirming a match. The payment stores
+the actor, method, reason, and timestamp; the API records before/after audit evidence
+and publishes `payment.matched` only after commit. Foreign payment and claim IDs are
+returned as not found.
 
 The authenticated organization dependency supplies `organization_id` to each
 service. Repositories scope tenant-owned `get`, `list`, and lookup queries by that
@@ -47,20 +59,23 @@ implemented submission lifecycle events. Status and payment changes also write
 the existing claim timeline events, and payment detection publishes the existing
 payment event before recovery attribution.
 
-Recovery verification and invoice generation, sending, and payment update their
-persisted domain records. Complete mutation audit records containing actor,
-before/after values, reason, and correlation ID are not implemented across these
-modules yet. Correlation-ID propagation also remains release-blocking work.
+Payment ingestion and manual matching record actor, before/after values, reason,
+organization, and correlation ID through the platform audit writer. Recovery
+verification and invoice generation, sending, and payment update their persisted
+domain records, but complete mutation audit and correlation-ID propagation are not
+yet consistent across every recovery and invoice mutation and remain release-blocking
+work.
 
 ## Partner Billing Readiness
 
 The current payment-to-recovery path is an orchestration proof. A matched positive
 payment in `paid` or `partial` state creates an unverified recovery, and a human must
 verify it before monthly invoice inclusion. That rule is not sufficient evidence for
-production success-fee billing: it does not yet model contractual scope, qualifying
-interventions, bulk/partial allocations, settlement evidence, reversals, disputes, or
-credits. Production contingency invoices remain blocked until the attribution ledger
-and controls in [ADR 0004](adr/0004-revenue-recovery-partner-operating-model.md) pass.
+production success-fee billing. Deterministic candidate matching and human provenance
+are now implemented, but append-only bulk/partial allocations, stronger settlement
+evidence, reversals/refunds, disputes, and credits remain open. Production contingency
+invoices remain blocked until the attribution ledger and controls in
+[ADR 0004](adr/0004-revenue-recovery-partner-operating-model.md) pass.
 
 ## Compatibility
 

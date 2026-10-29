@@ -30,6 +30,19 @@ class PaymentIngest(BaseModel):
 class PaymentMatch(BaseModel):
     claim_id: int
     submission_id: int | None = None
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class PaymentMatchCandidate(BaseModel):
+    claim_id: int
+    claim_number: str
+    payer_name: str
+    billed_amount: Decimal
+    paid_amount: Decimal
+    outstanding_amount: Decimal
+    currency: str
+    confidence: int
+    reasons: list[str]
 
 
 class PaymentRead(BaseModel):
@@ -51,6 +64,9 @@ class PaymentRead(BaseModel):
     source: PaymentSource
     raw_payload: dict
     matched_at: datetime | None
+    matched_by_id: int | None
+    matching_method: str | None
+    matching_reason: str | None
     correlation_id: str
     created_at: datetime
 

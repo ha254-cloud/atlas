@@ -34,21 +34,6 @@ def _organization(db, suffix: str):
         email=f"billing-{suffix.lower()}@atlas.test",
         status="active",
     )
-
-
-    @pytest.mark.parametrize(
-        "source",
-        [
-            PaymentSource.CSV,
-            PaymentSource.EXCEL,
-            PaymentSource.PORTAL_EXPORT,
-            PaymentSource.EMAIL_REPORT,
-        ],
-    )
-    def test_kenya_first_report_sources_are_supported(source):
-        payload = _payload(None).model_copy(update={"source": source})
-
-        assert payload.source == source
     db.add(organization)
     db.flush()
     patient = Patient(
@@ -73,11 +58,27 @@ def _organization(db, suffix: str):
         status="denied",
         billed_amount=Decimal("2000.00"),
         paid_amount=Decimal("0.00"),
+        currency="KES",
         service_date=date(2026, 1, 1),
     )
     db.add(claim)
     db.flush()
     return organization, claim
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        PaymentSource.CSV,
+        PaymentSource.EXCEL,
+        PaymentSource.PORTAL_EXPORT,
+        PaymentSource.EMAIL_REPORT,
+    ],
+)
+def test_kenya_first_report_sources_are_supported(source):
+    payload = _payload(None).model_copy(update={"source": source})
+
+    assert payload.source == source
 
 
 def _payload(claim_id: int | None, *, reference: str = "EFT-001") -> PaymentIngest:
@@ -89,7 +90,7 @@ def _payload(claim_id: int | None, *, reference: str = "EFT-001") -> PaymentInge
         expected_amount=Decimal("2000.00"),
         paid_amount=Decimal("1000.00"),
         adjustment_amount=Decimal("1000.00"),
-        currency="usd",
+        currency="kes",
         payment_method="eft",
         status=PaymentStatus.PAID,
         source=PaymentSource.ERA_835,
@@ -104,7 +105,7 @@ def test_ingestion_uses_effective_tenant_fee_and_is_idempotent(db):
             organization_id=organization.id,
             fee_percentage=Decimal("10.00"),
             vat_percentage=Decimal("0.00"),
-            currency="USD",
+            currency="KES",
             payment_terms_days=30,
             effective_from=date(2026, 1, 1),
             effective_to=None,
@@ -114,7 +115,7 @@ def test_ingestion_uses_effective_tenant_fee_and_is_idempotent(db):
             organization_id=organization.id,
             fee_percentage=Decimal("15.00"),
             vat_percentage=Decimal("5.00"),
-            currency="USD",
+            currency="KES",
             payment_terms_days=30,
             effective_from=date(2026, 7, 1),
             effective_to=None,
@@ -168,7 +169,7 @@ def test_conflicting_idempotency_replay_is_rejected(db):
         organization_id=organization.id,
         fee_percentage=Decimal("15.00"),
         vat_percentage=Decimal("0.00"),
-        currency="USD",
+        currency="KES",
         payment_terms_days=30,
         effective_from=date(2026, 1, 1),
         reason="Contract",
@@ -198,3 +199,70 @@ def test_missing_fee_contract_blocks_recovery_but_not_unmatched_evidence(db):
         _payload(None, reference="EFT-UNMATCHED")
     )
     assert unmatched.payment.id is not None
+
+
+def test_unmatched_payment_candidates_are_ranked_and_tenant_scoped(db):
+    organization, own_claim = _organization(db, "ONE")
+    _, foreign_claim = _organization(db, "TWO")
+    payment = PaymentService(db, organization.id).ingest(
+        _payload(None).model_copy(
+            update={
+                "raw_payload": {
+                    "claim_number": own_claim.claim_number,
+                    "foreign_claim_number": foreign_claim.claim_number,
+                }
+            }
+        )
+    ).payment
+
+    candidates = PaymentService(db, organization.id).candidates(payment.id)
+
+    assert [candidate.claim_id for candidate in candidates] == [own_claim.id]
+    assert candidates[0].confidence == 90
+    assert candidates[0].reasons == [
+        "currency_match",
+        "claim_reference",
+        "payer_name",
+        "amount_within_outstanding",
+    ]
+
+
+def test_manual_match_records_provenance_and_rejects_currency_mismatch(db):
+    organization, claim = _organization(db, "ONE")
+    db.add(
+        RecoveryFeeSchedule(
+            organization_id=organization.id,
+            fee_percentage=Decimal("15.00"),
+            vat_percentage=Decimal("0.00"),
+            currency="KES",
+            payment_terms_days=30,
+            effective_from=date(2026, 1, 1),
+            reason="Contract",
+        )
+    )
+    payment = PaymentService(db, organization.id).ingest(_payload(None)).payment
+    service = PaymentService(db, organization.id)
+
+    matched = service.match(
+        payment.id,
+        claim_id=claim.id,
+        matched_by=42,
+        reason="Matched to payer remittance claim reference",
+    )
+
+    assert matched.claim_id == claim.id
+    assert matched.matched_by_id == 42
+    assert matched.matching_method == "manual"
+    assert matched.matching_reason == "Matched to payer remittance claim reference"
+    assert db.query(Recovery).filter(Recovery.payment_id == payment.id).one()
+
+    other_payment = PaymentService(db, organization.id).ingest(
+        _payload(None, reference="EFT-USD").model_copy(update={"currency": "USD"})
+    ).payment
+    with pytest.raises(ValueError, match="does not match payment currency"):
+        service.match(
+            other_payment.id,
+            claim_id=claim.id,
+            matched_by=42,
+            reason="Attempt mismatched currency",
+        )

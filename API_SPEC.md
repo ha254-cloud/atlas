@@ -1,8 +1,8 @@
 # Atlas API Specification
 
-Last verified: 2026-10-27  
+Last verified: 2026-10-29
 API version prefix: `/api/v1`  
-Registered operations: 228
+Registered operations: 229
 
 This file is the admission registry for Atlas HTTP operations. The generated FastAPI
 OpenAPI document at `/openapi.json` remains the executable source for request/response
@@ -201,6 +201,7 @@ GET /api/v1/payments/fee-schedules
 POST /api/v1/payments/fee-schedules
 GET /api/v1/payments/records
 GET /api/v1/payments/records/{payment_id}
+GET /api/v1/payments/records/{payment_id}/candidates
 POST /api/v1/payments/records/{payment_id}/match
 GET /api/v1/platform-admin/hospitals
 GET /api/v1/platform-admin/summary
@@ -295,7 +296,6 @@ these paths as callable APIs.
 |---|---|
 | Integrations | `GET /api/v1/integrations/{integration_id}/mappings`; `GET /api/v1/integrations/{integration_id}/runs`; `GET /api/v1/integrations/{integration_id}/runs/{run_id}/errors`; `POST /api/v1/integrations/{integration_id}/mappings`; `POST /api/v1/integrations/{integration_id}/mappings/preview`; `POST /api/v1/integrations/{integration_id}/runs/{run_id}/retry` |
 | Payers | `GET /api/v1/payers/{payer_id}/claims/{claim_id}/validation`; `GET /api/v1/payers/{payer_id}/contracts`; `GET /api/v1/payers/{payer_id}/intelligence`; `GET /api/v1/payers/{payer_id}/profile`; `GET /api/v1/payers/{payer_id}/rules`; `POST /api/v1/payers/{payer_id}/contracts`; `POST /api/v1/payers/{payer_id}/profile`; `POST /api/v1/payers/{payer_id}/rules` |
-| Payments | `GET /api/v1/payments/records/{payment_id}/candidates` |
 | Recoveries | `GET /api/v1/recoveries/{recovery_id}/attributions`; `POST /api/v1/recoveries/interventions`; `POST /api/v1/recoveries/{recovery_id}/dispute`; `POST /api/v1/recoveries/{recovery_id}/resolve` |
 
 ## Compatibility Notes
@@ -316,6 +316,15 @@ these paths as callable APIs.
 - `/api/v1/payments` and `/api/v1/payments/records` are existing recovery and canonical
   evidence views. Extend the registered Payments owner; do not create claim-payment
   endpoints that bypass reconciliation.
+- `GET /api/v1/payments/records/{payment_id}/candidates` returns at most ten
+  deterministic same-tenant, same-currency claim candidates for unmatched payment
+  evidence. Scores are based only on payment payload claim references, normalized
+  payer name, and exact/within-outstanding amount evidence; no AI output is used.
+  `POST /api/v1/payments/records/{payment_id}/match` requires a human finance reason
+  and persists actor, method, reason, and timestamp while audit and the post-commit
+  `payment.matched` event carry organization and reconciliation-request correlation
+  evidence. Both operations require
+  `manage_billing`; foreign payment and claim identifiers are treated as not found.
 - `GET /api/v1/payments/claims/{claim_id}/tracking` is a tenant-scoped claim read model
   over appeal, submission, matched payment, verified recovery, and invoice evidence.
   AI estimates and unverified recovery records never complete financial stages.
