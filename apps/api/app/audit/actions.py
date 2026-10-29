@@ -69,6 +69,10 @@ class AuditAction(StrEnum):
     # Payments
     PAYMENT_RECEIVED = "payment.received"
     PAYMENT_MATCHED = "payment.matched"
+    PAYMENT_SETTLEMENT_EVIDENCE_RECORDED = "payment.settlement_evidence_recorded"
+    PAYMENT_ALLOCATED = "payment.allocated"
+    PAYMENT_ALLOCATION_ADJUSTED = "payment.allocation_adjusted"
+    INVOICE_CREDIT_NOTE_ISSUED = "invoice.credit_note_issued"
     RECOVERY_VERIFIED = "recovery.verified"
     RECOVERY_FEE_CONFIGURED = "recovery.fee_configured"
 

@@ -1,8 +1,8 @@
 # Atlas Database Schema
 
-Last verified: 2026-10-28  
-Alembic head: `14d669265fc7`
-Registered SQLAlchemy tables: 66
+Last verified: 2026-10-29
+Alembic head: `7c2e8a4f9b1d`
+Registered SQLAlchemy tables: 69
 
 This file is the admission registry for physical database tables. SQLAlchemy models
 and Alembic migrations remain the executable definitions of columns, constraints,
@@ -46,7 +46,7 @@ requires an approved migration with a demonstrated semantic need.
 | Documents | 3 | Claim-parented evidence records, immutable versions, and append-only holds. |
 | Payers | 2 | Tenant payer registry and statistics. |
 | Appeals and submissions | 4 | Appeals and immutable versions; human-triggered submissions and events. |
-| Payments, recovery, and billing | 8 | Canonical payments, operational recovery, fee schedules, and recovery invoices. |
+| Payments, recovery, and billing | 11 | Canonical payments, immutable settlement/allocation evidence, operational recovery projections, fee schedules, recovery invoices, and immutable credit notes. |
 | AI and Copilot | 6 | Tenant-attributed AI usage/execution and Copilot conversations/messages/confirmations. |
 | Tasks and notifications | 4 | Tasks, activities, skills, and durable task notifications. |
 | Workflows | 5 | Definitions, steps, executions, step executions, and durable event inbox. |
@@ -96,6 +96,7 @@ integration_sync_errors
 integration_sync_runs
 integrations
 invitations
+invoice_credit_notes
 invoice_lines
 invoices
 organization_settings_versions
@@ -105,6 +106,8 @@ patient_consents
 patients
 payer_statistics
 payers
+payment_allocations
+payment_settlement_evidence
 payments
 recoveries
 recovery_accounts
@@ -138,7 +141,7 @@ workflow_steps
 
 ### Tables Carrying Organization ID
 
-These 53 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
+These 56 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
 `ai_call_logs`, `api_keys`, `appeal_submission_events`, `appeal_submissions`,
 `appeal_versions`, `appeals`, `audit_logs`, `branch_memberships`, `branches`,
 `claim_analyses`, `claim_decisions`,
@@ -147,7 +150,8 @@ These 53 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_an
 `departments`, `document_holds`, `document_versions`, `documents`, `import_jobs`,
 `integration_mapping_profiles`, `integration_sync_runs`,
 `integrations`, `invitations`, `invoices`, `organization_settings_versions`,
-`patient_consents`, `patients`, `payer_statistics`, `payers`, `payments`,
+`patient_consents`, `patients`, `payer_statistics`, `payers`, `payment_allocations`,
+`payment_settlement_evidence`, `payments`, `invoice_credit_notes`,
 `recoveries`, `recovery_accounts`,
 `recovery_cases`, `recovery_fee_schedules`, `recovery_lifecycle_events`,
 `retention_policies`, `task_activities`, `task_notifications`, `tasks`,
@@ -158,6 +162,15 @@ The physical tenant key does not replace parent validation where both keys exist
 Semantically, root aggregates are directly tenant-owned while child/history tables
 remain parent-scoped with an additional organization key for defense in depth. Services
 must prove that referenced parents belong to the same organization.
+
+`payment_settlement_evidence` and `payment_allocations` are directly tenant-owned,
+append-only ledgers. PostgreSQL `ENABLE ALWAYS` triggers and SQLite test triggers
+reject update/delete. Reversals and refunds are positive compensating allocation
+rows linked by `parent_allocation_id`; current balances are projections, not mutable
+ledger totals. `invoice_credit_notes` is directly tenant-owned and immutable; each
+invoiced allocation adjustment can issue at most one credit note. `recoveries` now
+allows one projection per `(payment_id, claim_id)` so a payment can be split across
+claims while preserving the legacy single-claim path.
 
 ### Parent-Scoped Without Organization ID
 

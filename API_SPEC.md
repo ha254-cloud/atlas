@@ -2,7 +2,7 @@
 
 Last verified: 2026-10-29
 API version prefix: `/api/v1`  
-Registered operations: 229
+Registered operations: 235
 
 This file is the admission registry for Atlas HTTP operations. The generated FastAPI
 OpenAPI document at `/openapi.json` remains the executable source for request/response
@@ -152,6 +152,7 @@ POST /api/v1/integrations/{integration_id}/disconnect
 GET /api/v1/integrations/{integration_id}/health
 POST /api/v1/integrations/{integration_id}/sync
 GET /api/v1/invoices
+GET /api/v1/invoices/credit-notes
 POST /api/v1/invoices/monthly
 GET /api/v1/invoices/{invoice_id}
 POST /api/v1/invoices/{invoice_id}/paid
@@ -200,9 +201,14 @@ POST /api/v1/payments
 GET /api/v1/payments/fee-schedules
 POST /api/v1/payments/fee-schedules
 GET /api/v1/payments/records
+POST /api/v1/payments/allocations/{allocation_id}/adjustments
 GET /api/v1/payments/records/{payment_id}
+GET /api/v1/payments/records/{payment_id}/allocations
+POST /api/v1/payments/records/{payment_id}/allocations
 GET /api/v1/payments/records/{payment_id}/candidates
 POST /api/v1/payments/records/{payment_id}/match
+GET /api/v1/payments/records/{payment_id}/settlement-evidence
+POST /api/v1/payments/records/{payment_id}/settlement-evidence
 GET /api/v1/platform-admin/hospitals
 GET /api/v1/platform-admin/summary
 GET /api/v1/recoveries
@@ -325,6 +331,21 @@ these paths as callable APIs.
   `payment.matched` event carry organization and reconciliation-request correlation
   evidence. Both operations require
   `manage_billing`; foreign payment and claim identifiers are treated as not found.
+- Payment ingestion creates immutable source-record settlement evidence. Finance users
+  with `manage_billing` may append independently hashed bank/remittance/portal/report
+  evidence through `POST /api/v1/payments/records/{payment_id}/settlement-evidence`.
+  Currency and amount must match the canonical payment, and organization-scoped
+  idempotency keys reject conflicting replay.
+- `POST /api/v1/payments/records/{payment_id}/allocations` atomically allocates one
+  KES payment across up to 100 same-tenant claims. The batch is idempotent, cannot
+  exceed either the unallocated payment amount or a claim's outstanding amount, and
+  creates one recovery projection per payment/claim. Partial allocations remain in
+  the reconciliation queue through `unallocated_amount`.
+- `POST /api/v1/payments/allocations/{allocation_id}/adjustments` appends a bounded
+  reversal or refund; it never edits allocation evidence. The recovery and claim
+  balances are derived projections. If the recovery has already been invoiced, the
+  same transaction issues an immutable KES credit note. `GET /api/v1/invoices/credit-notes`
+  exposes those credit notes to authorized finance users.
 - `GET /api/v1/payments/claims/{claim_id}/tracking` is a tenant-scoped claim read model
   over appeal, submission, matched payment, verified recovery, and invoice evidence.
   AI estimates and unverified recovery records never complete financial stages.

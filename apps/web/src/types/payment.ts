@@ -71,6 +71,7 @@ export interface PaymentEvidenceRecord {
   paid_amount: string;
   adjustment_amount: string;
   currency: string;
+  payment_terms_days: number;
   payment_method: string | null;
   status: string;
   source: string;
@@ -80,6 +81,8 @@ export interface PaymentEvidenceRecord {
   matching_reason: string | null;
   correlation_id: string;
   created_at: string;
+  allocated_amount: string;
+  unallocated_amount: string;
 }
 
 export interface PaymentMatchCandidate {
@@ -92,4 +95,36 @@ export interface PaymentMatchCandidate {
   currency: string;
   confidence: number;
   reasons: string[];
+}
+
+export interface PaymentAllocationItem {
+  claim_id: number;
+  submission_id?: number | null;
+  amount: string;
+}
+
+export interface PaymentAllocation {
+  id: number;
+  organization_id: number;
+  payment_id: number;
+  claim_id: number;
+  submission_id: number | null;
+  parent_allocation_id: number | null;
+  allocation_type: "allocation" | "reversal" | "refund";
+  amount: string;
+  currency: string;
+  actor_id: number | null;
+  actor_type: "user" | "system";
+  reason: string;
+  correlation_id: string;
+  idempotency_key: string;
+  item_index: number;
+  created_at: string;
+}
+
+export interface PaymentAllocationBatch {
+  allocations: PaymentAllocation[];
+  created: boolean;
+  allocated_amount: string;
+  unallocated_amount: string;
 }

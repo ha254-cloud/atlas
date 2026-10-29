@@ -1,9 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.payments.models import PaymentSource, PaymentStatus
+from app.payments.models import PaymentAllocationType, PaymentSource, PaymentStatus
 
 
 class PaymentIngest(BaseModel):
@@ -45,6 +46,97 @@ class PaymentMatchCandidate(BaseModel):
     reasons: list[str]
 
 
+class SettlementEvidenceCreate(BaseModel):
+    evidence_type: Literal[
+        "bank_statement",
+        "payer_remittance",
+        "portal_export",
+        "settlement_report",
+        "source_record",
+    ]
+    settlement_reference: str = Field(min_length=1, max_length=255)
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    currency: str = Field(min_length=3, max_length=3)
+    received_at: datetime
+    source_hash: str = Field(pattern=r"^[a-fA-F0-9]{64}$")
+    reason: str = Field(min_length=1, max_length=500)
+    idempotency_key: str = Field(min_length=1, max_length=100)
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_evidence_currency(cls, value: str) -> str:
+        return value.upper()
+
+
+class SettlementEvidenceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    payment_id: int
+    evidence_type: str
+    settlement_reference: str
+    amount: Decimal
+    currency: str
+    received_at: datetime
+    source_hash: str
+    actor_id: int | None
+    reason: str
+    correlation_id: str
+    idempotency_key: str
+    created_at: datetime
+
+
+class PaymentAllocationItem(BaseModel):
+    claim_id: int
+    submission_id: int | None = None
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+
+
+class PaymentAllocationBatchCreate(BaseModel):
+    allocations: list[PaymentAllocationItem] = Field(min_length=1, max_length=100)
+    reason: str = Field(min_length=1, max_length=500)
+    idempotency_key: str = Field(min_length=1, max_length=80)
+
+
+class PaymentAllocationAdjustmentCreate(BaseModel):
+    adjustment_type: Literal[
+        PaymentAllocationType.REVERSAL,
+        PaymentAllocationType.REFUND,
+    ]
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    reason: str = Field(min_length=1, max_length=500)
+    idempotency_key: str = Field(min_length=1, max_length=100)
+
+
+class PaymentAllocationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    payment_id: int
+    claim_id: int
+    submission_id: int | None
+    parent_allocation_id: int | None
+    allocation_type: str
+    amount: Decimal
+    currency: str
+    actor_id: int | None
+    actor_type: str
+    reason: str
+    correlation_id: str
+    idempotency_key: str
+    item_index: int
+    created_at: datetime
+
+
+class PaymentAllocationBatchRead(BaseModel):
+    allocations: list[PaymentAllocationRead]
+    created: bool
+    allocated_amount: Decimal
+    unallocated_amount: Decimal
+
+
 class PaymentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -59,6 +151,7 @@ class PaymentRead(BaseModel):
     paid_amount: Decimal
     adjustment_amount: Decimal
     currency: str
+    payment_terms_days: int
     payment_method: str | None
     status: PaymentStatus
     source: PaymentSource
@@ -69,6 +162,8 @@ class PaymentRead(BaseModel):
     matching_reason: str | None
     correlation_id: str
     created_at: datetime
+    allocated_amount: Decimal
+    unallocated_amount: Decimal
 
 
 class RecoveryFeeScheduleCreate(BaseModel):

@@ -1,3 +1,17 @@
-from app.payments.models import Payment, PaymentSource, PaymentStatus
+from app.payments.models import (
+    Payment,
+    PaymentAllocation,
+    PaymentAllocationType,
+    PaymentSettlementEvidence,
+    PaymentSource,
+    PaymentStatus,
+)
 
-__all__ = ["Payment", "PaymentSource", "PaymentStatus"]
+__all__ = [
+    "Payment",
+    "PaymentAllocation",
+    "PaymentAllocationType",
+    "PaymentSettlementEvidence",
+    "PaymentSource",
+    "PaymentStatus",
+]

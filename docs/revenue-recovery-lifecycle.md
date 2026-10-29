@@ -68,5 +68,8 @@ Operational alerts should cover task failure by tenant, reconciliation lag, and 
 
 - Forecast confidence uses current payer timing evidence and has not been calibrated against a Kenyan design partner.
 - Contract adjustments and write-offs require valid human reasons but do not yet implement a configurable approval matrix.
-- Reversal, refund, dispute, credit-note, and bulk payment-allocation ledgers remain release blockers.
+- Immutable settlement evidence, bulk/partial payment allocations, reversals/refunds,
+  and invoice credit notes are implemented by the canonical Payments and Invoices
+  owners. Recovery dispute/resolution and independent production reconciliation remain
+  release blockers.
 - No automatic invoice creation or fee eligibility change is performed.

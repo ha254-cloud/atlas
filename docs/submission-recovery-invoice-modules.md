@@ -13,7 +13,8 @@ Public API endpoints are:
   `GET /api/v1/payments/records`,
   `GET /api/v1/payments/records/{payment_id}`,
   `GET /api/v1/payments/records/{payment_id}/candidates`, and
-  `POST /api/v1/payments/records/{payment_id}/match`.
+  `POST /api/v1/payments/records/{payment_id}/match`;
+  settlement evidence and allocation routes are documented in `API_SPEC.md`.
 - Submissions: `GET /api/v1/submission-connectors`,
   `POST /api/v1/appeals/{appeal_id}/submissions`, `GET /api/v1/submissions`,
   `GET /api/v1/submissions/{submission_id}`,
@@ -52,6 +53,29 @@ service. Repositories scope tenant-owned `get`, `list`, and lookup queries by th
 value. Request payloads do not accept an organization ID, and an identifier owned
 by another organization is treated as not found.
 
+Each canonical payment has at least one immutable settlement-evidence record. Source
+ingestion hashes the canonical payload; finance can append independently hashed bank,
+remittance, portal, or settlement-report evidence. Evidence amount and currency must
+match the payment. KES is the Kenya-first operational currency; cross-currency
+allocation fails closed. Payment ingestion snapshots effective configured payment
+terms when present. Unmatched evidence without a fee contract retains the migration's
+named legacy 30-day placeholder only to satisfy the persisted contract; the first
+allocation requires a fee schedule and atomically replaces that placeholder with the
+effective configured terms.
+
+`payment_allocations` is the append-only source for bulk and partial allocation.
+One request may atomically split a payment across up to 100 same-tenant claims.
+Organization-scoped idempotency keys make safe retry explicit. A reversal or refund is
+a positive compensating row linked to its original allocation and cannot exceed its
+remaining amount. Refunds and reversals reduce retained recovery but never reopen cash
+for reallocation. PostgreSQL serializes each payment, affected claims, original
+allocation, and tenant/idempotency key before recomputing limits so concurrent finance
+requests cannot overallocate cash, overpay a claim, or over-adjust an allocation.
+Claim and Recovery amounts are projections of the immutable ledger.
+If an adjustment affects an invoiced recovery, Payments synchronously asks Invoices
+to issue a credit note in the same transaction because the financial correction must
+be atomic; this is the documented exception to event-only cross-domain coordination.
+
 ## Events and Audit State
 
 Submission lifecycle changes create submission event records and publish the
@@ -72,10 +96,33 @@ The current payment-to-recovery path is an orchestration proof. A matched positi
 payment in `paid` or `partial` state creates an unverified recovery, and a human must
 verify it before monthly invoice inclusion. That rule is not sufficient evidence for
 production success-fee billing. Deterministic candidate matching and human provenance
-are now implemented, but append-only bulk/partial allocations, stronger settlement
-evidence, reversals/refunds, disputes, and credits remain open. Production contingency
-invoices remain blocked until the attribution ledger and controls in
+are now implemented together with append-only settlement evidence, atomic bulk/partial
+allocation, reversal/refund, and immutable credit notes. Recovery dispute/resolution,
+independent production reconciliation, and design-partner acceptance remain open.
+Production contingency invoices remain blocked until those controls and
 [ADR 0004](adr/0004-revenue-recovery-partner-operating-model.md) pass.
+
+## Operations And Rollback
+
+Migration `7c2e8a4f9b1d` creates the three directly tenant-owned ledgers, backfills
+source evidence and allocations from canonical Payment/Recovery records, and changes
+Recovery uniqueness from payment-only to payment-plus-claim. Deploy database, API,
+workers, then web. Application rollback is compatible while the new tables remain.
+Database downgrade is destructive and refuses to restore the old uniqueness rule when
+a payment has multiple Recovery projections; it requires a backup and an approved
+financial-data retention decision.
+
+Monitor HTTP failures for settlement/allocation/adjustment routes, idempotency
+conflicts, allocation batches rejected for insufficient/unmatched funds, credit-note
+creation failures, and settlement evidence without allocation. Alert Finance
+Operations and Platform Engineering when a tenant has five failures in 15 minutes or
+unallocated settled cash remains open for 24 hours. Logs and events carry tenant and
+correlation IDs but never raw settlement payloads or patient data. Event publication
+currently occurs after commit through the platform's in-process event bus; a process
+failure between commit and publication is not replayed because Atlas does not yet have
+a transactional domain-event outbox. Immutable ledger and audit records remain the
+recovery source of truth, and production event-driven automation remains blocked until
+the shared event platform adds durable outbox delivery.
 
 ## Compatibility
 

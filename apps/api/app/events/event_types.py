@@ -18,6 +18,14 @@ class EventType(str, Enum):
 
     PAYMENT_MATCHED = "payment.matched"
 
+    PAYMENT_SETTLEMENT_EVIDENCE_RECORDED = "payment.settlement_evidence_recorded"
+
+    PAYMENT_ALLOCATED = "payment.allocated"
+
+    PAYMENT_ALLOCATION_ADJUSTED = "payment.allocation_adjusted"
+
+    INVOICE_CREDIT_NOTE_ISSUED = "invoice.credit_note_issued"
+
     CLAIMS_SYNCED = "claims.synced"
 
     SYNC_FAILED = "sync.failed"

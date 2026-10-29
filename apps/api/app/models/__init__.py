@@ -1,3 +1,5 @@
+# ruff: noqa: I001
+
 from .organization import Organization, OrganizationSettingsVersion
 from .user import User
 from .payer import Payer
@@ -10,8 +12,15 @@ from .claim_event import ClaimEvent
 from .import_job import ImportJob
 from .recovery_case import RecoveryCase
 from .recovery import Recovery
-from .payment import Payment, PaymentSource, PaymentStatus
-from .invoice import Invoice, InvoiceLine
+from .payment import (
+    Payment,
+    PaymentAllocation,
+    PaymentAllocationType,
+    PaymentSettlementEvidence,
+    PaymentSource,
+    PaymentStatus,
+)
+from .invoice import Invoice, InvoiceCreditNote, InvoiceLine
 from app.billing.models import RecoveryFeeSchedule
 from .ai_analysis import AIAnalysis
 from .claim_analysis import ClaimAnalysis
@@ -61,10 +70,14 @@ __all__ = [
     "RecoveryCase",
     "Recovery",
     "Payment",
+    "PaymentAllocation",
+    "PaymentAllocationType",
+    "PaymentSettlementEvidence",
     "PaymentSource",
     "PaymentStatus",
     "RecoveryFeeSchedule",
     "Invoice",
+    "InvoiceCreditNote",
     "InvoiceLine",
     "AIAnalysis",
     "ClaimAnalysis",

@@ -128,8 +128,9 @@ Status: **In Progress**; first slice closed, existing foundations remain maintai
   idempotent retry, and production reconciliation.
   - [x] Restore deterministic tenant-scoped unmatched-payment candidates and persist
     human matching provenance, audit, and post-commit event evidence.
-  - [ ] Add append-only settlement evidence, bulk/partial allocation,
-    reversal/refund, credit-note, and production reconciliation ledgers.
+  - [x] Add append-only settlement evidence, atomic bulk/partial allocation,
+    idempotent reversal/refund, and invoice credit-note ledgers.
+  - [ ] Independently reconcile a production-like monthly settlement and invoice.
 - [ ] Complete Batch Two frontend workflows, tests, documentation, and checkpoint.
 
 ## Batch Three: Recovery, Appeals, AI

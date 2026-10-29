@@ -1,6 +1,8 @@
 import { api } from "@/lib/api-client";
 import type {
   PaymentEvidenceRecord,
+  PaymentAllocationBatch,
+  PaymentAllocationItem,
   ClaimPaymentTracking,
   PaymentMatchCandidate,
   PaymentsResponse,
@@ -18,4 +20,18 @@ export const paymentsService = {
       claim_id: claimId,
       reason,
     }),
+  allocate: (
+    paymentId: number,
+    allocations: PaymentAllocationItem[],
+    reason: string,
+    idempotencyKey: string,
+  ) =>
+    api.post<PaymentAllocationBatch>(
+      `/api/v1/payments/records/${paymentId}/allocations`,
+      {
+        allocations,
+        reason,
+        idempotency_key: idempotencyKey,
+      },
+    ),
 };

@@ -11,7 +11,11 @@ from app.db.database import Base
 class Recovery(Base, TimestampMixin):
     __tablename__ = "recoveries"
     __table_args__ = (
-        UniqueConstraint("submission_id", name="uq_recoveries_submission_id"),
+        UniqueConstraint(
+            "payment_id",
+            "claim_id",
+            name="uq_recoveries_payment_claim",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -25,7 +29,7 @@ class Recovery(Base, TimestampMixin):
         ForeignKey("appeal_submissions.id"), nullable=True, index=True
     )
     payment_id: Mapped[int] = mapped_column(
-        ForeignKey("payments.id"), nullable=False, unique=True, index=True
+        ForeignKey("payments.id"), nullable=False, index=True
     )
     paid_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     expected_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
@@ -45,5 +49,5 @@ class Recovery(Base, TimestampMixin):
 
     claim = relationship("Claim")
     submission = relationship("Submission")
-    payment = relationship("Payment", back_populates="recovery")
+    payment = relationship("Payment", back_populates="recoveries")
     invoice_line = relationship("InvoiceLine", back_populates="recovery", uselist=False)

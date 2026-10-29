@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_organization
 from app.db.database import get_db
-from app.invoices.schemas import InvoicePeriodRequest, InvoiceRead
+from app.invoices.schemas import InvoiceCreditNoteRead, InvoicePeriodRequest, InvoiceRead
 from app.invoices.service import InvoiceService
 from app.models.user import User
 from app.security.dependencies import require_permission
@@ -35,6 +35,15 @@ def list_invoices(
     current_user: User = Depends(require_permission(Permission.MANAGE_BILLING)),
 ):
     return InvoiceService(db, organization_id).list()
+
+
+@router.get("/credit-notes", response_model=list[InvoiceCreditNoteRead])
+def list_invoice_credit_notes(
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    current_user: User = Depends(require_permission(Permission.MANAGE_BILLING)),
+):
+    return InvoiceService(db, organization_id).list_credit_notes()
 
 
 @router.get("/{invoice_id}", response_model=InvoiceRead)

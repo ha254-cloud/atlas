@@ -30,6 +30,13 @@ class RecoveryRepository:
             Recovery.organization_id == self.organization_id,
         ).first()
 
+    def for_payment_claim(self, payment_id: int, claim_id: int) -> Recovery | None:
+        return self.db.query(Recovery).filter(
+            Recovery.payment_id == payment_id,
+            Recovery.claim_id == claim_id,
+            Recovery.organization_id == self.organization_id,
+        ).first()
+
     def list(self) -> list[Recovery]:
         return self.db.query(Recovery).filter(
             Recovery.organization_id == self.organization_id

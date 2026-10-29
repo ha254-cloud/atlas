@@ -45,3 +45,24 @@ class InvoiceRead(BaseModel):
     sent_at: datetime | None
     paid_at: datetime | None
     lines: list[InvoiceLineRead]
+
+
+class InvoiceCreditNoteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    invoice_id: int
+    invoice_line_id: int
+    payment_allocation_id: int
+    credit_note_number: str
+    adjustment_type: str
+    recovered_adjustment_amount: float
+    fee_adjustment_amount: float
+    vat_adjustment_amount: float
+    total_credit_amount: float
+    currency: str
+    reason: str
+    issued_by: int
+    correlation_id: str
+    issued_at: datetime
