@@ -125,7 +125,7 @@ class AuthService:
             first_name=data.first_name,
             last_name=data.last_name,
             role=UserRole.ADMIN,
-            is_superuser=True,
+            is_superuser=False,
             email_verified=False,
         )
         self.repository.create(user)

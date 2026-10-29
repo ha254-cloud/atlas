@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.organization import Organization
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.organizations.schemas import OrganizationSettings
 from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.user_repository import UserRepository
@@ -45,7 +45,8 @@ class OnboardingService:
             password_hash=hash_password(data.password),
             first_name=data.first_name,
             last_name=data.last_name,
-            is_superuser=True,
+            role=UserRole.ADMIN,
+            is_superuser=False,
         )
 
         self.user_repo.create(user)

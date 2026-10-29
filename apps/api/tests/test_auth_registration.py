@@ -85,6 +85,7 @@ def test_register_creates_pending_organization_and_admin(client, db_session):
     user = db_session.query(User).filter(User.id == body["user_id"]).first()
     assert user is not None
     assert user.role == UserRole.ADMIN
+    assert user.is_superuser is False
     assert user.email_verified is False
 
     settings_version = (
@@ -101,6 +102,28 @@ def test_register_creates_pending_organization_and_admin(client, db_session):
         .first()
     )
     assert token_row is not None
+
+
+def test_onboarding_creates_hospital_admin_without_platform_access(client, db_session):
+    from app.models.user import User, UserRole
+
+    response = client.post(
+        "/api/v1/onboarding/",
+        json={
+            "organization_name": "Mombasa Medical Centre",
+            "organization_email": "operations@mombasa-medical.example",
+            "organization_phone": "+254700000002",
+            "first_name": "Amina",
+            "last_name": "Juma",
+            "admin_email": "amina@mombasa-medical.example",
+            "password": STRONG_PASSWORD,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    user = db_session.query(User).filter(User.id == response.json()["user_id"]).one()
+    assert user.role == UserRole.ADMIN
+    assert user.is_superuser is False
 
 
 def test_register_rejects_weak_password(client):
