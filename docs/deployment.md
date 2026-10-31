@@ -129,9 +129,12 @@ are embedded at build time. Roll back by restoring the prior complete
 
 The HostAfrica HCode Developer plan can run an internet-accessible testing
 backend with synthetic data. It is not the production healthcare deployment
-gate: local document storage is ephemeral, malware scanning is disabled, and
-the plan's backup, capacity, monitoring, SMTP, object-storage, and recovery
-controls have not been accepted for real patient data.
+gate: local document storage is ephemeral, in-container ClamAV exceeds the
+available runtime memory, and the plan's capacity, monitoring, SMTP,
+object-storage, and recovery controls have not been accepted for real patient
+data. PostgreSQL and Redis backups are scheduled daily with seven-day retention,
+but a backup file is not recovery evidence until an isolated restore rehearsal
+passes.
 
 Create one HCode **Web app** project from the GitHub repository with:
 
@@ -162,6 +165,10 @@ INTEGRATION_ENCRYPTION_KEY=<Fernet key>
 DOCUMENT_STORAGE_BACKEND=local
 DOCUMENT_MALWARE_SCAN_ENABLED=false
 COPILOT_ENABLED=false
+AI_PROVIDER=openai
+AI_MODEL=gpt-4.1
+AI_MODEL_FAST=gpt-4.1-mini
+AI_MONTHLY_BUDGET_USD=20
 ```
 
 Mark connection URLs, `SECRET_KEY`, and `INTEGRATION_ENCRYPTION_KEY` as secret.
@@ -169,10 +176,32 @@ Demo seeding is blocked in production and is restart-safe in staging. It uses
 documented synthetic credentials only; never load patient or payer production
 data into this environment.
 
+AI must remain disabled until a provider key has been created or rotated,
+stored as a secret `OPENAI_API_KEY`, and protected by an account-side budget.
+`AI_MONTHLY_BUDGET_USD` is a fail-closed application circuit breaker based on
+persisted approximate model costs; it is not a prepaid limit and does not
+replace the provider's hard project budget. All AI calls continue through
+`AIGateway`, and generated appeals still require explicit human approval before
+submission.
+
+The HCode image can start a local ClamAV daemon only when
+`DOCUMENT_MALWARE_SCAN_HOST` is `127.0.0.1` or `localhost`. The Developer
+runtime killed `freshclam` with signal 9 while testing the signature database on
+2026-10-31, so local scanning must remain disabled on this plan. To enable
+fail-closed scanning, provision a private, adequately sized scanner, set its
+host and port, enable `DOCUMENT_MALWARE_SCAN_ENABLED`, and confirm that
+`/health/ready` reports `malware_scanner: ok` before accepting uploads.
+
 After the generated HCode address passes `/health/ready`, add
 `api.atlashealth.ke` under the project's Domains tab and create the exact CNAME
 record HCode displays. Wait until HCode reports HTTPS active before testing
 authentication from the static frontend.
+
+The synthetic staging deployment was verified on 2026-10-31 at
+`https://api.atlashealth.ke`: PostgreSQL and Redis readiness, HTTPS, login, and
+frontend-origin CORS passed. Manual PostgreSQL and Redis backup artifacts were
+created and reached `Ready`; restore validation remains open. AI and malware
+scanning remain disabled pending a rotated AI key and an external scanner.
 
 ## Production Checklist
 
