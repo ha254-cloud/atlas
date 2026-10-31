@@ -235,7 +235,7 @@ function CaseDetail({ item }: { item: WorkspaceCase }) {
               <div className="flex flex-wrap gap-2">
                 {appeal.status !== "submitted" && (
                   <Button size="sm" className="gap-1" asChild>
-                    <Link href={`/claims/${item.claim_id}`}>
+                    <Link href={`/claims/detail?id=${item.claim_id}`}>
                       Review and submit <ChevronRight className="h-3 w-3" />
                     </Link>
                   </Button>

@@ -8,6 +8,13 @@ from app.models.submission import SubmissionStatus
 
 
 @dataclass(frozen=True)
+class SubmissionAttachment:
+    filename: str
+    content: bytes
+    content_type: str
+
+
+@dataclass(frozen=True)
 class SubmissionPayload:
     appeal_id: int
     claim_id: int
@@ -15,6 +22,7 @@ class SubmissionPayload:
     payer_code: str
     appeal_text: str
     attachments: list[str] = field(default_factory=list)
+    attachment_files: list[SubmissionAttachment] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -26,7 +34,7 @@ class SubmissionResponse:
     payload: dict[str, Any] = field(default_factory=dict)
 
 
-class PayerConnector(ABC):
+class SubmissionConnector(ABC):
     provider: str
 
     @abstractmethod
@@ -46,18 +54,6 @@ class PayerConnector(ABC):
 
     async def check_status(self, external_reference: str) -> SubmissionResponse:
         return await self.status(external_reference)
-
-    async def submit_claim(self, payload: dict[str, Any]) -> SubmissionResponse:
-        raise NotImplementedError(f"{self.provider} does not support direct claim submission")
-
-    async def download_payment_report(self, **filters: Any) -> list[dict[str, Any]]:
-        raise NotImplementedError(f"{self.provider} does not support payment report download")
-
-    async def download_denial_report(self, **filters: Any) -> list[dict[str, Any]]:
-        raise NotImplementedError(f"{self.provider} does not support denial report download")
-
-
-SubmissionConnector = PayerConnector
 
 
 class BaseConnector(ABC):

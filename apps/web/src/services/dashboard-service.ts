@@ -54,9 +54,6 @@ export interface SubmissionSummary {
   recovery_pipeline: Record<string, number>;
 }
 
-export interface ForecastPoint { month: string; expected_recovery: number }
-export interface AnalyticsInsight { category: string; message: string }
-
 export interface FinanceOverview {
   executive: {
     as_of: string;
@@ -108,6 +105,9 @@ export interface FinanceOverview {
   };
 }
 
+export interface ForecastPoint { month: string; expected_recovery: number }
+export interface AnalyticsInsight { category: string; message: string }
+
 export const dashboardService = {
   getDashboard: () => api.get<DashboardResponse>("/api/v1/dashboard"),
   getDenialBreakdown: () => api.get<Array<{ type: string; count: number }>>("/api/v1/dashboard/analytics/denials"),
@@ -118,6 +118,6 @@ export const dashboardService = {
   getPayerPerformance: () => api.get<PayerPerformance[]>("/api/v1/dashboard/analytics/payer-performance"),
   getForecast: () => api.get<ForecastPoint[]>("/api/v1/dashboard/analytics/forecast", { months: 6 }),
   getInsights: () => api.get<AnalyticsInsight[]>("/api/v1/dashboard/analytics/insights"),
-  getFinanceOverview: () => api.get<FinanceOverview>("/api/v1/finance/overview"),
   getSubmissionSummary: () => api.get<SubmissionSummary>("/api/v1/payer-connectivity/analytics/executive-summary"),
+  getFinanceOverview: () => api.get<FinanceOverview>("/api/v1/finance/overview"),
 };

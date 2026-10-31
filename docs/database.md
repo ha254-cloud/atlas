@@ -11,6 +11,8 @@
 ### Claims Domain
 - `patients` — patient records
 - `payers` — insurance payers
+- `payer_policy_sources` — directly tenant-owned, immutable, effective-dated,
+  maker/checker-approved Kenya policy-source versions bound to a same-tenant payer
 - `claims` — individual claims
 - `claim_lines` — line items within a claim
 - `claim_events` — immutable event timeline per claim
@@ -23,6 +25,14 @@
 ### Operations
 - `import_jobs` — background import job tracking
 - `audit_logs` — system-wide immutable audit trail
+
+### Appeal Grounding
+
+`appeals.grounding_report` stores JSON provenance for the policy sources selected
+at generation time: source ID, policy code, version, source reference, effective
+dates, approval timestamp, content checksum, applicability inputs, and filtered
+model-citation counts. It does not copy policy text. The source record remains the
+authoritative reviewed content.
 
 ## Multi-Tenancy
 

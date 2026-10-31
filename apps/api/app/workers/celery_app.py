@@ -3,9 +3,11 @@ from datetime import timedelta
 from celery import Celery
 from celery.schedules import crontab
 
+from app.core.config import settings
+
 celery = Celery(
     "atlas",
-    broker="redis://redis:6379/0",
+    broker=settings.redis_url,
     # No result backend: nothing in the codebase ever calls .get()/checks
     # AsyncResult state — every call site is a fire-and-forget .delay().
     # Configuring a backend anyway (as before) makes apply_async() touch
@@ -44,6 +46,10 @@ celery.conf.update(
     broker_connection_timeout=2,
     broker_connection_max_retries=1,
     beat_schedule={
+        "domain-event-outbox": {
+            "task": "tasks.dispatch_domain_events",
+            "schedule": timedelta(seconds=settings.EVENT_OUTBOX_DISPATCH_INTERVAL_SECONDS),
+        },
         "payer-submission-status-poll": {
             "task": "tasks.check_pending_payer_submissions",
             "schedule": timedelta(minutes=5),

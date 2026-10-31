@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, TrendingUp, AlertTriangle,
   ClipboardCheck, ThumbsUp, ThumbsDown, Edit3, CheckCircle,
@@ -25,20 +25,24 @@ import { AppealBuilder } from "@/features/appeals/components/AppealBuilder";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function ClaimDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get("id");
+  const id = Number(idParam);
+  const hasValidId = idParam !== null && Number.isSafeInteger(id) && id > 0;
   const router = useRouter();
   const queryClient = useQueryClient();
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   const { data: claim, isLoading } = useQuery({
     queryKey: ["claim", id],
-    queryFn: () => claimsService.get(Number(id)),
+    queryFn: () => claimsService.get(id),
+    enabled: hasValidId,
   });
 
   const { data: analysis } = useQuery({
     queryKey: ["claim-analysis", id],
-    queryFn: () => claimsService.analysis(Number(id)),
-    enabled: Boolean(id),
+    queryFn: () => claimsService.analysis(id),
+    enabled: hasValidId,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "pending" || status === "running" ? 3000 : false;
@@ -53,6 +57,15 @@ export default function ClaimDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["recovery-workspace"] });
     },
   });
+
+  if (!hasValidId) {
+    return (
+      <div className="flex flex-col h-full">
+        <Header title="Claim Details" />
+        <div className="p-6 text-center text-muted-foreground py-16">The claim link is invalid.</div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -240,7 +253,7 @@ export default function ClaimDetailPage() {
         {/* 4. Evidence */}
         <EvidencePanel denial_code={topDenial?.denial_code} />
 
-        <ClaimDocuments claimId={Number(id)} />
+        <ClaimDocuments claimId={id} />
 
         {/* 5. Appeal Builder */}
         <Card>
@@ -250,15 +263,15 @@ export default function ClaimDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <AppealBuilder claimId={Number(id)} recoveryId={topRecovery?.id} />
+            <AppealBuilder claimId={id} recoveryId={topRecovery?.id} />
           </CardContent>
         </Card>
 
         {/* 6. Payment Tracking */}
-        <PaymentTracking claimId={Number(id)} />
+        <PaymentTracking claimId={id} />
 
         {/* 7. Timeline */}
-        <ClaimTimeline claimId={Number(id)} />
+        <ClaimTimeline claimId={id} />
       </div>
     </div>
   );

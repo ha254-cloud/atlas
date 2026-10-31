@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from enum import StrEnum
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
@@ -30,19 +29,27 @@ class SubmissionStatus(StrEnum):
 
 class Submission(Base, TimestampMixin):
     __tablename__ = "appeal_submissions"
-    __table_args__ = (UniqueConstraint("appeal_id", name="uq_appeal_submissions_appeal_id"),)
+    __table_args__ = (
+        UniqueConstraint("appeal_id", name="uq_appeal_submissions_appeal_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organization_id: Mapped[int] = mapped_column(
         ForeignKey("organizations.id"), nullable=False, index=True
     )
-    claim_id: Mapped[int | None] = mapped_column(ForeignKey("claims.id"), nullable=True, index=True)
-    appeal_id: Mapped[int] = mapped_column(ForeignKey("appeals.id"), nullable=False, index=True)
+    claim_id: Mapped[int | None] = mapped_column(
+        ForeignKey("claims.id"), nullable=True, index=True
+    )
+    appeal_id: Mapped[int] = mapped_column(
+        ForeignKey("appeals.id"), nullable=False, index=True
+    )
     integration_id: Mapped[int | None] = mapped_column(
         ForeignKey("integrations.id"), nullable=True, index=True
     )
     connector: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    external_tracking_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    external_tracking_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
     external_reference = synonym("external_tracking_id")
     status: Mapped[SubmissionStatus] = mapped_column(
         SqlEnum(SubmissionStatus, name="appealsubmissionstatus"),
@@ -50,10 +57,18 @@ class Submission(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
-    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     next_follow_up_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )

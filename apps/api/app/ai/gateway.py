@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # behavior for now.
 _TASK_ROUTING: dict[str, str] = {
     "appeal": "openai",
+    "appeal_sectioned": "openai",
     "claim_analysis": "openai",
     "denial": "openai",
     "coding": "openai",
@@ -53,6 +54,7 @@ _TASK_ROUTING: dict[str, str] = {
 # only) — other providers ignore the `model` kwarg entirely.
 _TASK_MODEL: dict[str, str] = {
     "appeal": settings.AI_MODEL,
+    "appeal_sectioned": settings.AI_MODEL,
     "medical_necessity": settings.AI_MODEL,
     "claim_analysis": settings.AI_MODEL_FAST,
     "denial": settings.AI_MODEL_FAST,
@@ -70,7 +72,8 @@ _TASK_MODEL: dict[str, str] = {
 # wired to automatically reload a specific prompt version's file (there's
 # only ever "the current file on disk"), it's a manual audit trail today.
 _PROMPT_VERSIONS: dict[str, str] = {
-    "appeal": "1.0",
+    "appeal": "1.1",
+    "appeal_sectioned": "1.0",
     "claim_analysis": "1.0",
     "denial": "1.0",
     "coding": "1.0",

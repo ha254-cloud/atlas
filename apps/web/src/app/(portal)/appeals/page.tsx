@@ -76,7 +76,7 @@ function AppealRow({ appeal }: { appeal: AppealListItem }) {
         <p className="text-sm font-semibold tabular-nums">{formatCurrency(appeal.billed_amount)}</p>
         <p className="text-xs text-muted-foreground">Claim value</p>
       </div>
-      <Link href={`/claims/${appeal.claim_id}`} className="justify-self-start md:justify-self-end">
+      <Link href={`/claims/detail?id=${appeal.claim_id}`} className="justify-self-start md:justify-self-end">
         <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
           Open <ArrowRight className="h-3.5 w-3.5" />
         </Button>

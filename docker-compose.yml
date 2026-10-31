@@ -31,6 +31,14 @@ services:
       - clamav_data:/var/lib/clamav
     restart: unless-stopped
 
+  mailpit:
+    image: axllent/mailpit:v1.32
+    container_name: atlas_mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: unless-stopped
+
   api:
     build:
       context: ./apps/api
@@ -38,6 +46,13 @@ services:
     container_name: atlas_api
     env_file:
       - ./apps/api/.env
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: no-reply@atlas.local
+      SMTP_USE_TLS: "false"
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,10 +60,15 @@ services:
         condition: service_started
       clamav:
         condition: service_started
+      mailpit:
+        condition: service_started
     ports:
       - "8000:8000"
     volumes:
       - uploads_data:/app/uploads
+      - ./apps/api/app:/app/app:ro
+      - ./apps/api/alembic:/app/alembic:ro
+      - ./apps/api/alembic.ini:/app/alembic.ini:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
 
@@ -59,13 +79,23 @@ services:
     container_name: atlas_worker
     env_file:
       - ./apps/api/.env
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: no-reply@atlas.local
+      SMTP_USE_TLS: "false"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+      mailpit:
+        condition: service_started
     volumes:
       - uploads_data:/app/uploads
+      - ./apps/api/app:/app/app:ro
     command: celery -A app.workers.celery_app.celery worker --loglevel=info
     restart: unless-stopped
 
@@ -81,6 +111,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    volumes:
+      - ./apps/api/app:/app/app:ro
     command: celery -A app.workers.celery_app.celery beat --loglevel=info
     restart: unless-stopped
 

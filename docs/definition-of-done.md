@@ -7,11 +7,9 @@ A feature is complete only when every applicable item is checked and evidence is
 ### Domain Design
 
 - [ ] Owning module and engine are identified.
-- [ ] Every persisted table is classified as global, directly tenant-owned, or parent-scoped.
 - [ ] Models, constraints, indexes, and migration are reviewed.
 - [ ] Schemas reject unknown or invalid input where appropriate.
 - [ ] Repository methods are tenant-scoped.
-- [ ] API, task, event, AI, integration, report, cache, storage, and audit tenant context is defined.
 - [ ] Service owns business rules and transaction boundaries.
 - [ ] API is thin, authenticated, authorized, and documented.
 - [ ] Events are versioned, post-commit, idempotent, and documented.
@@ -28,8 +26,7 @@ A feature is complete only when every applicable item is checked and evidence is
 
 - [ ] Unit tests cover rules and calculations.
 - [ ] Repository tests cover tenant isolation and constraints.
-- [ ] API tests cover authentication, RBAC, same-tenant access, cross-tenant denial, validation, and error mapping.
-- [ ] Background-task tests reject missing or mismatched organization ownership.
+- [ ] API tests cover authentication, RBAC, ownership, validation, and error mapping.
 - [ ] Event tests cover duplicate delivery and failed consumers.
 - [ ] Integration tests cover the user-visible workflow.
 - [ ] Migration upgrade is tested against PostgreSQL and Alembic has one head.

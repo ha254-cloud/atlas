@@ -1,21 +1,9 @@
-"""
-Sectioned appeal generator.
-
-Builds an appeal letter by generating each section independently:
-  1. Introduction
-  2. Medical Necessity / Clinical Justification
-  3. Coding Justification
-  4. Policy References
-  5. Supporting Documents checklist
-  6. Requested Action
-  7. Signature block
-
-Generating section by section produces cleaner, more editable output
-than asking the LLM to write the whole letter at once.
-"""
+"""Generate a structured, editable appeal in one grounded model call."""
 
 from app.ai.gateway import gateway
-from app.appeals.validator import validate_sections
+from app.ai.prompt_loader import load_prompt
+from app.appeals.grounding import render_policy_reference_section
+from app.appeals.validator import AppealValidationError, validate_appeal, validate_sections
 
 SECTIONS = [
     "introduction",
@@ -27,89 +15,71 @@ SECTIONS = [
     "signature",
 ]
 
-_SECTION_PROMPTS = {
-    "introduction": (
-        "Write the introduction paragraph of a healthcare appeal letter on behalf of "
-        "{hospital_name}. State the purpose of the appeal, reference the patient "
-        "{patient_name}, the claim number {claim_number}, the denial date, and the "
-        "denial code {denial_code}. Be formal and professional. Return only the paragraph text."
-    ),
-    "medical_necessity": (
-        "Write the medical necessity section of a healthcare appeal letter for claim {claim_number}. "
-        "Explain why the services were medically necessary based on diagnosis codes {diagnosis_codes} "
-        "and the clinical condition. The AI analysis found the root cause of denial to be: "
-        "{root_cause}. Recommended action: {recommended_action}. Reference applicable clinical guidelines. "
-        "Return only the section text."
-    ),
-    "coding_justification": (
-        "Write the coding justification section of a healthcare appeal letter. "
-        "Defend the procedure codes {procedure_codes} and modifiers {modifiers} used. "
-        "Use only verified coding guidance applicable to the payer and jurisdiction. "
-        "Do not cite a source that is not supplied in the context. Denial code: {denial_code}. "
-        "Return only the section text."
-    ),
-    "policy_references": (
-        "Write the policy references section of a healthcare appeal letter. "
-        "Use only supplied, verified payer contract, SHA benefit, or operating guidance. "
-        "If no verified reference is supplied, state that payer policy verification is required. "
-        "Claim denial code: {denial_code}. Procedures: {procedure_codes}. "
-        "Applicable references to cite if relevant: {suggested_citations}. "
-        "Return only the section text."
-    ),
-    "supporting_documents": (
-        "Write a supporting documents paragraph for a healthcare appeal letter. "
-        "List what documents are attached to support the appeal for claim {claim_number}. "
-        "Documents on file: {documents_summary}. "
-        "Include medical records, operative notes, referral letters as appropriate. "
-        "Return only the section text."
-    ),
-    "requested_action": (
-        "Write the requested action section of a healthcare appeal letter. "
-        "Clearly state what action is requested from the payer: full payment, "
-        "reconsideration, or reprocessing. Claim: {claim_number}. Amount: KES {billed_amount}. "
-        "Return only the section text."
-    ),
-    "signature": (
-        "Write a professional closing and signature block for a healthcare appeal letter "
-        "sent on behalf of {hospital_name}. Include a professional closing, space for "
-        "signature, and provider name placeholder. Return only the closing text."
-    ),
-}
-
-
 class SectionedAppealGenerator:
     async def generate(
         self, claim, denial=None, analysis=None, organization=None, extra_context=None
     ) -> dict:
-        """Generate each section independently and combine into a full letter.
-        `analysis`, if provided, is a ClaimAnalysis row whose root_cause/
-        recommended_action feed the medical necessity section. `organization`,
-        if provided, is the Organization (hospital/practice) sending the letter.
-        `extra_context`, if provided, may contain `documents_summary` and
-        `suggested_citations` — richer evidence/citation grounding built by
-        AppealService."""
+        """Generate all editable sections in one validated JSON response."""
         context = self._build_context(claim, denial, analysis, organization, extra_context)
-        sections: dict[str, str] = {}
-
-        for section in SECTIONS:
-            prompt = _SECTION_PROMPTS[section].format(**context)
-            text = await gateway.generate(task="appeal", prompt=prompt)
-            # Strip any accidental JSON wrapping
-            sections[section] = text.strip().strip('"')
+        data = await gateway.generate_json(
+            task="appeal_sectioned",
+            prompt=self._build_prompt(context),
+            system=load_prompt("appeal_sectioned"),
+        )
+        sections = data.get("sections")
+        if not isinstance(sections, dict):
+            raise AppealValidationError("Sectioned appeal response contains no sections object.")
 
         validate_sections(sections, required=SECTIONS)
-
+        sections["policy_references"] = render_policy_reference_section(
+            context["verified_policy_sources"]
+        )
         full_text = self._assemble(sections, context)
-
-        return {
+        result = {
+            "title": data.get("title") or f"Appeal Letter — Claim {claim.claim_number}",
             "appeal_letter": full_text,
             "sections": sections,
-            "summary": f"Appeal for claim {claim.claim_number} — {denial.denial_code if denial else 'underpayment'}",
-            "citations": [],
-            "key_arguments": [sections.get("requested_action", "")[:200]],
+            "summary": data.get("summary")
+            or (
+                f"Appeal for claim {claim.claim_number} — "
+                f"{denial.denial_code if denial else 'underpayment'}"
+            ),
+            "citations": data.get("citations"),
+            "key_arguments": data.get("key_arguments"),
             "requested_action": sections.get("requested_action", ""),
-            "confidence": 85,
+            "attachments": data.get("attachments"),
+            "missing_information": data.get("missing_information"),
+            "confidence": data.get("confidence", 0),
         }
+        validate_appeal(
+            result,
+            claim.claim_number,
+            denial_code=denial.denial_code if denial else None,
+            patient_last_name=claim.patient.last_name if claim.patient else None,
+        )
+        return result
+
+    def _build_prompt(self, context: dict) -> str:
+        return (
+            f"Hospital/Provider: {context['hospital_name']}\n"
+            f"Patient Name: {context['patient_name']}\n"
+            f"Claim Number: {context['claim_number']}\n"
+            f"Payer: {context['payer_name']}\n"
+            f"Service Date: {context['service_date']}\n"
+            f"Billed Amount (KES): {context['billed_amount']:.2f}\n"
+            f"Paid Amount (KES): {context['paid_amount']:.2f}\n"
+            f"Balance (KES): {context['balance']:.2f}\n"
+            f"Denial Code: {context['denial_code']}\n"
+            f"Denial Reason: {context['denial_reason']}\n"
+            f"Diagnosis Codes: {context['diagnosis_codes']}\n"
+            f"Procedure Codes: {context['procedure_codes']}\n"
+            f"Modifiers: {context['modifiers']}\n"
+            f"Root Cause Analysis: {context['root_cause']}\n"
+            f"Recommended Action: {context['recommended_action']}\n\n"
+            f"Supporting Documents on File:\n{context['documents_summary']}\n\n"
+            f"Verified Applicable References:\n{context['suggested_citations']}\n\n"
+            f"Approved Source Excerpts:\n{context['policy_source_context']}\n"
+        )
 
     def _build_context(
         self, claim, denial, analysis=None, organization=None, extra_context=None
@@ -129,6 +99,8 @@ class SectionedAppealGenerator:
             "denial_reason": denial.description if denial else "Underpayment",
             "billed_amount": float(claim.billed_amount),
             "paid_amount": float(claim.paid_amount),
+            "balance": float(claim.billed_amount) - float(claim.paid_amount),
+            "service_date": claim.service_date,
             "diagnosis_codes": ", ".join(d.icd_code for d in claim.diagnoses) or "None on file",
             "procedure_codes": ", ".join(line.cpt_code for line in claim.claim_lines)
             or "None on file",
@@ -138,6 +110,15 @@ class SectionedAppealGenerator:
             or "None available",
             "documents_summary": extra_context.get("documents_summary") or "None on file",
             "suggested_citations": ", ".join(extra_context.get("suggested_citations") or [])
+            or "None",
+            "verified_policy_sources": extra_context.get("verified_policy_sources") or [],
+            "policy_source_context": "\n".join(
+                (
+                    f"{source['title']} ({source['reference']}), "
+                    f"version {source['version']}:\n{source['excerpt']}"
+                )
+                for source in extra_context.get("verified_policy_sources") or []
+            )
             or "None",
         }
 

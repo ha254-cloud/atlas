@@ -9,7 +9,7 @@
 ## Local Development
 
 ```bash
-# Start infrastructure (PostgreSQL + Redis)
+# Start infrastructure (PostgreSQL + Redis + ClamAV + Mailpit)
 make up
 
 # Run database migrations
@@ -34,6 +34,10 @@ The separate Atlas-company control plane at `http://localhost:3000/atlas-admin`
 uses:
 - Email: `platform-admin@atlasdemo.com`
 - Password: `AtlasPlatform2026!`
+
+Local transactional email is delivered to Mailpit at `http://localhost:8025`.
+Password resets, organization verification, team invitations, and test outbound
+messages appear there instead of being sent to the public internet.
 
 ## Environment Variables
 
@@ -62,6 +66,12 @@ DOCUMENT_MALWARE_SCAN_TIMEOUT_SECONDS=10
 INTEGRATION_ENCRYPTION_KEY=<generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
 AI_PROVIDER=openai
 AI_MODEL=gpt-4.1
+SMTP_HOST=<authenticated-smtp-host>
+SMTP_PORT=587
+SMTP_USER=<smtp-user>
+SMTP_PASSWORD=<smtp-password>
+SMTP_FROM_EMAIL=<verified-sender-address>
+SMTP_USE_TLS=true
 ```
 
 ### Web (`apps/web/.env.local`)
@@ -69,6 +79,100 @@ AI_MODEL=gpt-4.1
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
+
+## Static Web Hosting with FileZilla
+
+Atlas can export the web application as static files for an Apache-compatible
+`public_html` host. The API remains a separate FastAPI deployment; static
+hosting does not run the API, workers, PostgreSQL, Redis, scheduled jobs, or
+document scanning.
+
+For the current `www` deployment, configure DNS and TLS for both:
+
+- `https://www.atlashealth.ke` — static frontend uploaded to `public_html`
+- `https://api.atlashealth.ke` — deployed API service
+
+The certificate must also include `atlashealth.ke` before redirecting the apex
+domain to `www.atlashealth.ke`; otherwise browsers show a certificate error
+before they can follow the redirect.
+
+Build the upload directory from `apps/web`:
+
+```powershell
+$env:NEXT_PUBLIC_API_URL = "https://api.atlashealth.ke"
+npm ci
+npm run build:static
+```
+
+The command validates that the API URL is public HTTPS and creates
+`apps/web/out`. In FileZilla:
+
+1. Connect using SFTP or FTPS. Do not send credentials over plain FTP.
+2. Open the hosting account's `public_html` directory.
+3. Upload the **contents** of `apps/web/out`, not the `out` directory itself.
+4. Enable display of hidden files and verify `.htaccess` was uploaded.
+5. Confirm `https://www.atlashealth.ke/login/` loads and browser requests go to
+   `https://api.atlashealth.ke`.
+
+The included `.htaccess` forces HTTPS, disables directory listing, provides the
+static 404 document, adds baseline browser security headers, and controls cache
+behavior. If the host does not run Apache or disallows `.htaccess`, reproduce
+those settings in its control panel.
+
+Before production use, set the API `FRONTEND_URL=https://www.atlashealth.ke`
+and allow CORS only from `https://www.atlashealth.ke`. Rebuild and re-upload
+the static files whenever a `NEXT_PUBLIC_*` value changes because those values
+are embedded at build time. Roll back by restoring the prior complete
+`public_html` snapshot; do not mix files from different builds.
+
+## HCode Testing Backend
+
+The HostAfrica HCode Developer plan can run an internet-accessible testing
+backend with synthetic data. It is not the production healthcare deployment
+gate: local document storage is ephemeral, malware scanning is disabled, and
+the plan's backup, capacity, monitoring, SMTP, object-storage, and recovery
+controls have not been accepted for real patient data.
+
+Create one HCode **Web app** project from the GitHub repository with:
+
+- root directory: `/apps/api`
+- build type: `Dockerfile`
+- Dockerfile path: `./Dockerfile`
+- Docker context: `.`
+- runtime port: `8000`
+- health check: `/health/ready`
+- branch: `main`
+
+HCode databases are private to one project. The test image therefore runs the
+API, Celery worker, and Celery scheduler together so they can share the same
+PostgreSQL and Redis services. A production deployment should separate those
+processes on infrastructure with an explicitly shared private network.
+
+Create one PostgreSQL 16 database and one Redis 7 database in the project, then
+attach their internal connection strings as secret `DATABASE_URL` and
+`REDIS_URL` variables. Add these project variables:
+
+```text
+APP_ENV=staging
+FRONTEND_URL=https://www.atlashealth.ke
+CORS_ALLOWED_ORIGINS=https://www.atlashealth.ke,https://atlashealth.ke
+SEED_DEMO_DATA=true
+SECRET_KEY=<random 32-byte-or-longer value>
+INTEGRATION_ENCRYPTION_KEY=<Fernet key>
+DOCUMENT_STORAGE_BACKEND=local
+DOCUMENT_MALWARE_SCAN_ENABLED=false
+COPILOT_ENABLED=false
+```
+
+Mark connection URLs, `SECRET_KEY`, and `INTEGRATION_ENCRYPTION_KEY` as secret.
+Demo seeding is blocked in production and is restart-safe in staging. It uses
+documented synthetic credentials only; never load patient or payer production
+data into this environment.
+
+After the generated HCode address passes `/health/ready`, add
+`api.atlashealth.ke` under the project's Domains tab and create the exact CNAME
+record HCode displays. Wait until HCode reports HTTPS active before testing
+authentication from the static frontend.
 
 ## Production Checklist
 
@@ -78,6 +182,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - [ ] Run `alembic upgrade head` as part of every deployment
 - [ ] Enable HTTPS — never run with plain HTTP in production
 - [ ] Configure CORS to allow only your frontend domain
+- [ ] Configure authenticated SMTP with a verified sender domain and test delivery, bounce, and outage behavior
 - [ ] Restrict the document bucket to the API workload identity and deny public access
 - [ ] Monitor ClamAV health/signature freshness and alert on scanner-unavailable rejections
 - [ ] Verify clean, EICAR, quarantine-denial, S3 retrieval, and tenant-key isolation paths

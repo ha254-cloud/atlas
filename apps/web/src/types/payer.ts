@@ -12,6 +12,18 @@ export type PaymentMethod =
 
 export type PayerApprovalStatus = "draft" | "pending_approval" | "approved" | "rejected";
 export type PayerHealthStatus = "not_configured" | "healthy" | "unhealthy";
+export type PolicySourceType =
+  | "payer_contract"
+  | "benefit_schedule"
+  | "operating_guidance"
+  | "clinical_guideline"
+  | "regulation";
+export type PolicySourceStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "retired";
 
 export interface Payer {
   id: number;
@@ -53,4 +65,34 @@ export interface PayerHealthCheckResult {
   error: string | null;
   failure_count: number;
   latency_ms: number | null;
+}
+
+export interface PayerPolicySource {
+  id: number;
+  organization_id: number;
+  payer_id: number;
+  policy_code: string;
+  title: string;
+  source_type: PolicySourceType;
+  jurisdiction: string;
+  version: number;
+  status: PolicySourceStatus;
+  source_reference: string;
+  source_uri: string | null;
+  content: string;
+  content_sha256: string;
+  effective_from: string;
+  effective_to: string | null;
+  denial_categories: string[];
+  procedure_codes: string[];
+  created_by: number;
+  change_reason: string;
+  submitted_by: number | null;
+  submitted_at: string | null;
+  approved_by: number | null;
+  approved_at: string | null;
+  rejected_by: number | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  created_at: string | null;
 }

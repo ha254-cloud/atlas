@@ -5,18 +5,138 @@ from app.core.dependencies import get_current_organization
 from app.db.database import get_db
 from app.models.user import User
 from app.payers.monitoring import PayerMonitoringService
+from app.payers.policies import PayerPolicyService
 from app.payers.schemas import (
     PayerCreate,
     PayerHealthCheckResult,
     PayerRead,
     PayerRejection,
     PayerUpdate,
+    PolicySourceCreate,
+    PolicySourceRead,
+    PolicySourceRejection,
 )
 from app.payers.service import PayerService
 from app.security.dependencies import require_permission
 from app.security.permissions import Permission
 
 router = APIRouter(prefix="/payers", tags=["Payer Registry"])
+
+
+@router.get("/{payer_id}/policy-sources", response_model=list[PolicySourceRead])
+def list_policy_sources(
+    payer_id: int,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    _current_user: User = Depends(require_permission(Permission.CONFIGURE_INTEGRATIONS)),
+):
+    try:
+        return PayerPolicyService(db, organization_id).list(payer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{payer_id}/policy-sources", response_model=PolicySourceRead, status_code=201)
+def create_policy_source(
+    payer_id: int,
+    payload: PolicySourceCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    current_user: User = Depends(require_permission(Permission.CONFIGURE_INTEGRATIONS)),
+):
+    try:
+        return PayerPolicyService(db, organization_id).create_version(
+            payer_id,
+            payload,
+            actor_id=current_user.id,
+            correlation_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
+    except ValueError as exc:
+        db.rollback()
+        status_code = 404 if str(exc) == "Payer not found" else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{payer_id}/policy-sources/{source_id}/submit-for-approval",
+    response_model=PolicySourceRead,
+)
+def submit_policy_source(
+    payer_id: int,
+    source_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    current_user: User = Depends(require_permission(Permission.CONFIGURE_INTEGRATIONS)),
+):
+    try:
+        return PayerPolicyService(db, organization_id).submit_for_approval(
+            payer_id,
+            source_id,
+            actor_id=current_user.id,
+            correlation_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
+    except ValueError as exc:
+        db.rollback()
+        status_code = 404 if str(exc) in {"Payer not found", "Policy source not found"} else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{payer_id}/policy-sources/{source_id}/approve",
+    response_model=PolicySourceRead,
+)
+def approve_policy_source(
+    payer_id: int,
+    source_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    current_user: User = Depends(require_permission(Permission.APPROVE_PAYERS)),
+):
+    try:
+        return PayerPolicyService(db, organization_id).approve(
+            payer_id,
+            source_id,
+            actor_id=current_user.id,
+            correlation_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
+    except ValueError as exc:
+        db.rollback()
+        status_code = 404 if str(exc) in {"Payer not found", "Policy source not found"} else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{payer_id}/policy-sources/{source_id}/reject",
+    response_model=PolicySourceRead,
+)
+def reject_policy_source(
+    payer_id: int,
+    source_id: int,
+    payload: PolicySourceRejection,
+    request: Request,
+    db: Session = Depends(get_db),
+    organization_id: int = Depends(get_current_organization),
+    current_user: User = Depends(require_permission(Permission.APPROVE_PAYERS)),
+):
+    try:
+        return PayerPolicyService(db, organization_id).reject(
+            payer_id,
+            source_id,
+            reason=payload.reason,
+            actor_id=current_user.id,
+            correlation_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
+    except ValueError as exc:
+        db.rollback()
+        status_code = 404 if str(exc) in {"Payer not found", "Policy source not found"} else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.get("", response_model=list[PayerRead])

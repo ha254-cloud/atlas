@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -79,8 +79,10 @@ function RunStatus({ run }: { run: IntegrationSyncRun }) {
 }
 
 export default function IntegrationWorkspacePage() {
-  const params = useParams<{ id: string }>();
-  const integrationId = Number(params.id);
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get("id");
+  const integrationId = Number(idParam);
+  const hasValidId = idParam !== null && Number.isSafeInteger(integrationId) && integrationId > 0;
   const queryClient = useQueryClient();
   const [name, setName] = useState("Hospital claims export");
   const [sourceFormat, setSourceFormat] = useState<MappingProfileCreateInput["source_format"]>("csv");
@@ -90,9 +92,9 @@ export default function IntegrationWorkspacePage() {
   const [selectedRun, setSelectedRun] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const integration = useQuery({ queryKey: ["integration", integrationId], queryFn: () => integrationsService.get(integrationId) });
-  const mappings = useQuery({ queryKey: ["integration-mappings", integrationId], queryFn: () => integrationsService.mappings(integrationId) });
-  const runs = useQuery({ queryKey: ["integration-runs", integrationId], queryFn: () => integrationsService.runs(integrationId), refetchInterval: 10000 });
+  const integration = useQuery({ queryKey: ["integration", integrationId], queryFn: () => integrationsService.get(integrationId), enabled: hasValidId });
+  const mappings = useQuery({ queryKey: ["integration-mappings", integrationId], queryFn: () => integrationsService.mappings(integrationId), enabled: hasValidId });
+  const runs = useQuery({ queryKey: ["integration-runs", integrationId], queryFn: () => integrationsService.runs(integrationId), enabled: hasValidId, refetchInterval: 10000 });
   const errors = useQuery({ queryKey: ["integration-run-errors", integrationId, selectedRun], queryFn: () => integrationsService.runErrors(integrationId, selectedRun!), enabled: selectedRun !== null });
 
   const createMapping = useMutation({
@@ -118,6 +120,15 @@ export default function IntegrationWorkspacePage() {
 
   function updateField(index: number, update: Partial<Omit<IntegrationMappingField, "id">>) {
     setFields((current) => current.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...update } : field));
+  }
+
+  if (!hasValidId) {
+    return (
+      <div className="flex h-full flex-col">
+        <Header title="Integration Setup" />
+        <div className="p-6 text-center text-muted-foreground">The integration link is invalid.</div>
+      </div>
+    );
   }
 
   const latestMapping = mappings.data?.[0];

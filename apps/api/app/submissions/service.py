@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 import app.integrations.mock  # noqa: F401 - registers built-in submission connectors
 from app.appeals.service import AppealService
 from app.claims.timeline import ClaimTimeline
+from app.documents.storage import read_file
 from app.events.event_types import EventType
 from app.events.publisher import EventPublisher
-from app.integrations.base import SubmissionPayload
+from app.integrations.base import SubmissionAttachment, SubmissionPayload
 from app.integrations.manager import IntegrationManager
 from app.integrations.registry import submission_registry
 from app.models.appeal import Appeal, AppealStatus
@@ -94,6 +95,21 @@ class SubmissionService:
             self.db.flush()
         self._record(submission, SubmissionStatus.SUBMITTING, "Submitting appeal")
 
+        attachment_files = []
+        if appeal.pdf_document is not None:
+            if (
+                appeal.pdf_document.organization_id != self.organization_id
+                or appeal.pdf_document.claim_id != claim.id
+            ):
+                raise ValueError("Approved appeal PDF does not match the submission tenant and claim")
+            attachment_files.append(
+                SubmissionAttachment(
+                    filename=appeal.pdf_document.filename,
+                    content=read_file(appeal.pdf_document.storage_path),
+                    content_type=appeal.pdf_document.content_type,
+                )
+            )
+
         payload = SubmissionPayload(
             appeal_id=appeal.id,
             claim_id=claim.id,
@@ -101,6 +117,7 @@ class SubmissionService:
             payer_code=claim.payer.payer_code,
             appeal_text=appeal.appeal_text,
             attachments=list(appeal.attachments or []),
+            attachment_files=attachment_files,
         )
         try:
             result = await transport.submit_appeal(payload)

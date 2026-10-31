@@ -18,11 +18,10 @@ Handlers are plain callables: `handler(event_type, payload, organization_id)`.
 A class-based handler implements `__call__` with that signature (matches the
 spec's `EventBus.subscribe("claim.analyzed", DashboardHandler())` shape).
 
-Dispatch is synchronous and in-process (no broker) — appropriate here since
-handlers either do cheap local work or hand off to Celery themselves (see
-`app/events/handlers/claims.py`/`webhooks.py`). One handler raising an
-exception must never break the publisher or any other handler, so every
-call is individually wrapped and logged, never re-raised.
+Dispatch is synchronous and in-process. The transactional outbox invokes it
+after commit and retries the event when any handler fails. One handler raising
+an exception must never prevent the remaining handlers from running, so errors
+are collected and returned to the dispatcher instead of being raised inline.
 """
 
 import logging
@@ -63,16 +62,19 @@ class EventBus:
 
     def dispatch(
         self, event_type: EventType | str, payload: dict, organization_id: int | None = None
-    ) -> None:
+    ) -> list[Exception]:
         key = _event_key(event_type)
+        errors: list[Exception] = []
         handlers = list(self._subscribers.get(key, [])) + list(
             self._subscribers.get(ALL_EVENTS, [])
         )
         for handler in handlers:
             try:
                 handler(key, payload, organization_id)
-            except Exception:
+            except Exception as exc:
+                errors.append(exc)
                 logger.exception("Event handler %r failed while handling %s", handler, key)
+        return errors
 
 
 # Single process-wide bus. Handlers register onto this instance via

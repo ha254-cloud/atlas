@@ -34,17 +34,3 @@ Return ONLY valid JSON — no prose before or after.
   "missing_information": [""],
   "confidence": 0
 }
-
-Claim Details:
-Claim Number: {claim_number}
-Patient: {patient_name}
-Payer: {payer_name}
-Service Date: {service_date}
-Billed Amount: {billed_amount}
-Paid Amount: {paid_amount}
-Balance: {balance}
-Denial Code: {denial_code}
-Denial Reason: {denial_reason}
-Diagnosis Codes: {diagnosis_codes}
-Procedure Codes: {procedure_codes}
-Modifiers: {modifiers}

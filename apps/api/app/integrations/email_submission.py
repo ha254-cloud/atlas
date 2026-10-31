@@ -20,6 +20,8 @@ class EmailSubmissionConnector(SubmissionConnector):
             raise ValueError("Payer submission email is not configured")
 
     async def submit(self, payload: SubmissionPayload) -> SubmissionResponse:
+        if not payload.attachment_files:
+            raise ValueError("Email submission requires the approved appeal PDF")
         attachments = [
             (item.filename, item.content, item.content_type) for item in payload.attachment_files
         ]

@@ -9,6 +9,9 @@ const manrope = Manrope({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Atlas — Healthcare Revenue Recovery",
   description: "Claim recovery and denial management platform",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

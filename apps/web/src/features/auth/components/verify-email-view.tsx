@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Activity, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { authService } from "@/services/auth-service";
 import { getErrorMessage } from "@/lib/api-client";
+import { AtlasMark } from "@/components/brand/atlas-mark";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 
@@ -33,11 +34,11 @@ export function VerifyEmailView() {
   }, [token]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+    <div className="flex w-full items-center justify-center px-4 py-10 sm:px-6 lg:px-12">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
           <div className="flex items-center gap-2">
-            <Activity className="h-8 w-8 text-primary" />
+            <AtlasMark className="h-8 w-8 text-primary" />
             <span className="text-3xl font-bold">Atlas</span>
           </div>
         </div>

@@ -1,19 +1,27 @@
 import type { NextConfig } from "next";
 
-console.log("NEXT_PUBLIC_API_URL =", process.env.NEXT_PUBLIC_API_URL);
+const isStaticExport = process.env.ATLAS_STATIC_EXPORT === "true";
 
 const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
-      },
-    ];
-  },
+  ...(isStaticExport
+    ? {
+        output: "export",
+        trailingSlash: true,
+        images: { unoptimized: true },
+      }
+    : {
+        async rewrites() {
+          return [
+            {
+              source: "/api/:path*",
+              destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
+            },
+          ];
+        },
+      }),
 };
 
 export default nextConfig;

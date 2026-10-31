@@ -13,6 +13,10 @@ class Citation:
     source: str
     reference: str
     description: str
+    policy_source_id: int | None = None
+    policy_code: str | None = None
+    version: int | None = None
+    content_sha256: str | None = None
 
 
 # Jurisdiction-specific references must come from a reviewed, versioned
@@ -37,31 +41,46 @@ def citations_for_denial_type(denial_type: DenialType | None) -> list[Citation]:
 
 
 def merge_citations(ai_citations: list | None, kb_citations: list[Citation]) -> list[dict]:
-    """Combine the AI's self-reported citations with KB-grounded ones the
-    Citation Engine already knows are applicable for this denial category,
-    deduping by (source, reference) so the same guideline isn't listed twice."""
+    """Return only citations present in the reviewed knowledge base.
+
+    Model-proposed citations are untrusted. They may influence relevance text
+    only when their source and reference exactly match a verified citation.
+    """
     merged: list[dict] = []
-    seen: set[tuple[str, str]] = set()
+    ai_by_key: dict[tuple[str, str], dict] = {}
 
     for entry in ai_citations or []:
         if not isinstance(entry, dict):
             continue
-        key = (str(entry.get("source", "")).strip(), str(entry.get("reference", "")).strip())
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(entry)
+        key = (
+            str(entry.get("source", "")).strip().casefold(),
+            str(entry.get("reference", "")).strip().casefold(),
+        )
+        if all(key):
+            ai_by_key[key] = entry
 
     for citation in kb_citations:
-        key = (citation.source, citation.reference)
-        if key in seen:
-            continue
-        seen.add(key)
+        key = (citation.source.strip().casefold(), citation.reference.strip().casefold())
+        proposed = ai_by_key.get(key)
         merged.append(
             {
                 "source": citation.source,
                 "reference": citation.reference,
-                "relevance": citation.description,
+                "relevance": (
+                    str(proposed.get("relevance", "")).strip()
+                    if proposed and proposed.get("relevance")
+                    else citation.description
+                ),
+                **(
+                    {
+                        "policy_source_id": citation.policy_source_id,
+                        "policy_code": citation.policy_code,
+                        "version": citation.version,
+                        "content_sha256": citation.content_sha256,
+                    }
+                    if citation.policy_source_id is not None
+                    else {}
+                ),
             }
         )
 

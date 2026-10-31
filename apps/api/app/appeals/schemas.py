@@ -65,6 +65,7 @@ class AppealRead(BaseModel):
     references: list[str] | None = None
     confidence: float | None = None
     quality_score: dict | None = None
+    grounding_report: dict | None = None
     ai_provider: str | None = None
     generated_by: str | None = None
     submitted_by: int | None = None

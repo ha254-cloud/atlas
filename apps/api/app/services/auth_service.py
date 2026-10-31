@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -20,10 +21,11 @@ from app.security.hashing import hash_password, verify_password
 from app.security.jwt import create_access_token
 from app.security.slug import unique_organization_slug
 from app.security.tokens import generate_token, is_expired
-from app.services.email_service import EmailService
+from app.services.email_service import EmailDeliveryError, EmailService
 
 VERIFICATION_TOKEN_TTL = timedelta(hours=24)
 RESET_TOKEN_TTL = timedelta(hours=1)
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -159,11 +161,11 @@ class AuthService:
             entity_id=organization.id,
         )
 
+        self.email_service.send_verification_email(user.email, token)
+
         self.db.commit()
         self.db.refresh(organization)
         self.db.refresh(user)
-
-        self.email_service.send_verification_email(user.email, token)
 
         return {
             "organization_id": organization.id,
@@ -224,9 +226,19 @@ class AuthService:
             entity="user",
             entity_id=user.id,
         )
-        self.db.commit()
+        self.db.flush()
 
-        self.email_service.send_password_reset_email(user.email, token)
+        try:
+            self.email_service.send_password_reset_email(user.email, token)
+        except EmailDeliveryError:
+            self.db.rollback()
+            logger.exception(
+                "Password reset email delivery failed for user_id=%s",
+                user.id,
+            )
+            return
+
+        self.db.commit()
 
     def reset_password(self, token: str, new_password: str) -> None:
         record = self.db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()

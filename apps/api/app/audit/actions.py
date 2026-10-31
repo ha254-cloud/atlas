@@ -24,6 +24,10 @@ class AuditAction(StrEnum):
     PAYER_SUBMITTED_FOR_APPROVAL = "payer.submitted_for_approval"
     PAYER_APPROVED = "payer.approved"
     PAYER_REJECTED = "payer.rejected"
+    PAYER_POLICY_CREATED = "payer_policy.created"
+    PAYER_POLICY_SUBMITTED = "payer_policy.submitted_for_approval"
+    PAYER_POLICY_APPROVED = "payer_policy.approved"
+    PAYER_POLICY_REJECTED = "payer_policy.rejected"
 
     # Claims
     CLAIM_CREATED = "claim.created"

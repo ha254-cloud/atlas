@@ -1,8 +1,8 @@
 # Atlas Database Schema
 
 Last verified: 2026-10-29
-Alembic head: `9f4d2c7a1b6e`
-Registered SQLAlchemy tables: 74
+Alembic head: `d4f7a2c6e9b3`
+Registered SQLAlchemy tables: 76
 
 This file is the admission registry for physical database tables. SQLAlchemy models
 and Alembic migrations remain the executable definitions of columns, constraints,
@@ -44,13 +44,14 @@ requires an approved migration with a demonstrated semantic need.
 | Patients and governance | 4 | Patient identity, consent versions, retention policies, and sessions. |
 | Claims, denials, and imports | 11 | Claims plus lines, diagnoses, validation, events, decisions, analyses, workflows, denials, and import jobs. |
 | Documents | 3 | Claim-parented evidence records, immutable versions, and append-only holds. |
-| Payers | 2 | Tenant payer registry and statistics. |
+| Payers | 3 | Tenant payer registry, policy sources, and statistics. |
 | Appeals and submissions | 4 | Appeals and immutable versions; human-triggered submissions and events. |
 | Payments, recovery, and billing | 16 | Canonical payments, immutable settlement/allocation/intervention/attribution/dispute evidence, operational recovery projections, fee schedules, recovery invoices, credit notes, and reconciliation runs. |
 | AI and Copilot | 6 | Tenant-attributed AI usage/execution and Copilot conversations/messages/confirmations. |
 | Tasks and notifications | 4 | Tasks, activities, skills, and durable task notifications. |
 | Workflows | 5 | Definitions, steps, executions, step executions, and durable event inbox. |
 | Integrations and webhooks | 8 | Connectors, credential/mapping/sync history, subscriptions, and deliveries. |
+| Domain events | 1 | Durable transactional outbox for tenant domain events. |
 | Audit | 1 | Immutable tenant audit evidence. |
 
 ## Canonical Table Manifest
@@ -87,6 +88,7 @@ departments
 document_holds
 document_versions
 documents
+domain_event_outbox
 email_verification_tokens
 import_jobs
 integration_credential_versions
@@ -105,6 +107,7 @@ organizations
 password_reset_tokens
 patient_consents
 patients
+payer_policy_sources
 payer_statistics
 payers
 payment_allocations
@@ -146,17 +149,19 @@ workflow_steps
 
 ### Tables Carrying Organization ID
 
-These 61 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
+These 63 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
 `ai_call_logs`, `api_keys`, `appeal_submission_events`, `appeal_submissions`,
 `appeal_versions`, `appeals`, `audit_logs`, `branch_memberships`, `branches`,
 `claim_analyses`, `claim_decisions`,
 `claim_events`, `claim_validation_issues`, `claim_workflows`, `claims`,
 `copilot_confirmations`, `copilot_conversations`, `copilot_messages`, `denials`,
-`departments`, `document_holds`, `document_versions`, `documents`, `import_jobs`,
+`departments`, `document_holds`, `document_versions`, `documents`,
+`domain_event_outbox`, `import_jobs`,
 `integration_mapping_profiles`, `integration_sync_runs`,
 `integrations`, `invitations`, `invoice_reconciliation_runs`, `invoices`,
 `organization_settings_versions`,
-`patient_consents`, `patients`, `payer_statistics`, `payers`, `payment_allocations`,
+`patient_consents`, `patients`, `payer_policy_sources`, `payer_statistics`, `payers`,
+`payment_allocations`,
 `payment_settlement_evidence`, `payments`, `invoice_credit_notes`,
 `recoveries`, `recovery_accounts`, `recovery_attribution_dispute_resolutions`,
 `recovery_attribution_disputes`, `recovery_attribution_versions`,

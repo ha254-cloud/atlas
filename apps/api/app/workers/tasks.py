@@ -53,16 +53,12 @@ def process_import(job_id: int):
         db.close()
 
 
-
 @celery.task(name="tasks.sync_integration")
-def sync_integration(
-    integration_id: int,
-    organization_id: int,
-    correlation_id: str | None = None,
-):
+def sync_integration(integration_id: int, organization_id: int):
     """Run a full sync for one integration (called by scheduler)."""
     from app.integrations.jobs import run_sync_job
-    return run_sync_job(integration_id, organization_id, correlation_id)
+
+    return run_sync_job(integration_id, organization_id)
 
 
 @celery.task(name="tasks.schedule_sftp_syncs")
@@ -73,10 +69,14 @@ def schedule_sftp_syncs():
 
     db = next(get_db())
     try:
-        rows = db.query(Integration.id, Integration.organization_id).filter(
-            Integration.provider == "sftp",
-            Integration.status.in_([IntegrationStatus.ACTIVE, IntegrationStatus.PENDING]),
-        ).all()
+        rows = (
+            db.query(Integration.id, Integration.organization_id)
+            .filter(
+                Integration.provider == "sftp",
+                Integration.status.in_([IntegrationStatus.ACTIVE, IntegrationStatus.PENDING]),
+            )
+            .all()
+        )
         for integration_id, organization_id in rows:
             sync_integration.delay(integration_id, organization_id)
         return {"queued": len(rows)}
@@ -106,11 +106,13 @@ def submit_payer_appeal(
 
     db = next(get_db())
     try:
-        return asyncio.run(PayerSubmissionService(db, organization_id).submit(
-            appeal_id=appeal_id,
-            connector=connector,
-            integration_id=integration_id,
-        )).id
+        return asyncio.run(
+            PayerSubmissionService(db, organization_id).submit(
+                appeal_id=appeal_id,
+                connector=connector,
+                integration_id=integration_id,
+            )
+        ).id
     finally:
         db.close()
 
@@ -121,7 +123,6 @@ def check_pending_payer_submissions():
     from app.db.database import get_db
     from app.models.appeal_submission import (
         AppealSubmission,
-        AppealSubmissionEvent,
         AppealSubmissionStatus,
     )
     from app.payer_connectivity.service import PayerSubmissionService
@@ -137,9 +138,11 @@ def check_pending_payer_submissions():
             AppealSubmissionStatus.APPROVED,
             AppealSubmissionStatus.ACCEPTED,
         ]
-        rows = db.query(AppealSubmission.id, AppealSubmission.organization_id).filter(
-            AppealSubmission.status.in_(trackable)
-        ).all()
+        rows = (
+            db.query(AppealSubmission.id, AppealSubmission.organization_id)
+            .filter(AppealSubmission.status.in_(trackable))
+            .all()
+        )
         for submission_id, organization_id in rows:
             try:
                 asyncio.run(PayerSubmissionService(db, organization_id).refresh(submission_id))
@@ -157,7 +160,7 @@ def generate_monthly_recovery_invoices():
 
     from app.db.database import get_db
     from app.models.organization import Organization
-    from app.invoices.service import InvoiceService
+    from app.services.invoice_service import InvoiceService
 
     first_of_this_month = date.today().replace(day=1)
     last_month = first_of_this_month - timedelta(days=1)
@@ -182,6 +185,55 @@ def generate_monthly_recovery_invoices():
         db.close()
 
 
+@celery.task(name="tasks.reconcile_recovery_lifecycles")
+def reconcile_recovery_lifecycles():
+    """Synchronize recovery lifecycle accounts with verified payment evidence."""
+    from app.db.database import get_db
+    from app.models.organization import Organization
+    from app.models.recovery_case import RecoveryCase
+    from app.recovery.service import RevenueRecoveryService
+
+    db = next(get_db())
+    processed = 0
+    try:
+        organization_ids = [row[0] for row in db.query(Organization.id).all()]
+        for organization_id in organization_ids:
+            try:
+                claim_ids = [
+                    row[0]
+                    for row in db.query(RecoveryCase.claim_id)
+                    .filter(RecoveryCase.organization_id == organization_id)
+                    .distinct()
+                    .all()
+                ]
+                service = RevenueRecoveryService(db, organization_id)
+                for claim_id in claim_ids:
+                    account = service.lifecycle.open_account(
+                        claim_id,
+                        actor_id=None,
+                        actor_type="system",
+                        reason="Scheduled lifecycle reconciliation",
+                        correlation_id=None,
+                    )
+                    service.lifecycle.synchronize_verified_recoveries(
+                        account,
+                        actor_id=None,
+                        actor_type="system",
+                        correlation_id=None,
+                    )
+                    processed += 1
+                db.commit()
+            except Exception:
+                logger.exception(
+                    "Could not reconcile recovery lifecycles for organization %s",
+                    organization_id,
+                )
+                db.rollback()
+        return {"processed": processed, "organizations": len(organization_ids)}
+    finally:
+        db.close()
+
+
 @celery.task(name="tasks.check_payer_follow_ups")
 def check_payer_follow_ups():
     """Publish follow-up work signals for payer submissions past their deadline."""
@@ -198,29 +250,40 @@ def check_payer_follow_ups():
 
     db = next(get_db())
     try:
-        rows = db.query(AppealSubmission).filter(
-            AppealSubmission.next_follow_up_at.isnot(None),
-            AppealSubmission.next_follow_up_at <= datetime.utcnow(),
-            AppealSubmission.status.in_([
-                AppealSubmissionStatus.SUBMITTED,
-                AppealSubmissionStatus.ACKNOWLEDGED,
-                AppealSubmissionStatus.UNDER_REVIEW,
-            ]),
-        ).all()
+        rows = (
+            db.query(AppealSubmission)
+            .filter(
+                AppealSubmission.next_follow_up_at.isnot(None),
+                AppealSubmission.next_follow_up_at <= datetime.utcnow(),
+                AppealSubmission.status.in_(
+                    [
+                        AppealSubmissionStatus.SUBMITTED,
+                        AppealSubmissionStatus.ACKNOWLEDGED,
+                        AppealSubmissionStatus.UNDER_REVIEW,
+                    ]
+                ),
+            )
+            .all()
+        )
         for row in rows:
-            db.add(AppealSubmissionEvent(
-                organization_id=row.organization_id,
-                submission_id=row.id,
-                status=row.status,
-                message="Payer follow-up due; analyst notification queued",
-                payload={"external_tracking_id": row.external_tracking_id},
-            ))
-            EventPublisher().publish(EventType.APPEAL_FOLLOW_UP_DUE, {
-                "organization_id": row.organization_id,
-                "submission_id": row.id,
-                "appeal_id": row.appeal_id,
-                "external_tracking_id": row.external_tracking_id,
-            })
+            db.add(
+                AppealSubmissionEvent(
+                    organization_id=row.organization_id,
+                    submission_id=row.id,
+                    status=row.status,
+                    message="Payer follow-up due; analyst notification queued",
+                    payload={"external_tracking_id": row.external_tracking_id},
+                )
+            )
+            EventPublisher().publish(
+                EventType.APPEAL_FOLLOW_UP_DUE,
+                {
+                    "organization_id": row.organization_id,
+                    "submission_id": row.id,
+                    "appeal_id": row.appeal_id,
+                    "external_tracking_id": row.external_tracking_id,
+                },
+            )
             row.next_follow_up_at = datetime.utcnow() + timedelta(days=7)
         db.commit()
     finally:
@@ -254,12 +317,16 @@ def deliver_webhook(subscription_id: int, event_type: str, payload: dict):
 
     db = next(get_db())
     try:
-        subscription = db.query(WebhookSubscription).filter(WebhookSubscription.id == subscription_id).first()
+        subscription = (
+            db.query(WebhookSubscription).filter(WebhookSubscription.id == subscription_id).first()
+        )
         if subscription is None or not subscription.is_active:
             return
 
         body = json.dumps({"event": event_type, "data": payload}, default=str)
-        signature = hmac.new(subscription.secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            subscription.secret.encode(), body.encode(), hashlib.sha256
+        ).hexdigest()
 
         success = False
         status_code = None
@@ -280,13 +347,15 @@ def deliver_webhook(subscription_id: int, event_type: str, payload: dict):
         except httpx.HTTPError as exc:
             error = str(exc)
 
-        db.add(WebhookDeliveryLog(
-            subscription_id=subscription.id,
-            event_type=event_type,
-            success=success,
-            status_code=status_code,
-            error=error,
-        ))
+        db.add(
+            WebhookDeliveryLog(
+                subscription_id=subscription.id,
+                event_type=event_type,
+                success=success,
+                status_code=status_code,
+                error=error,
+            )
+        )
         db.commit()
     finally:
         db.close()
@@ -340,121 +409,5 @@ def resume_workflow_execution(self, execution_id: int):
         if execution is None:
             return
         asyncio.run(WorkflowEngine(db, execution.organization_id).resume(execution_id))
-    finally:
-        db.close()
-
-
-@celery.task(
-    name="tasks.process_workflow_event",
-    bind=True,
-    max_retries=3,
-)
-def process_workflow_event(self, workflow_event_id: int):
-    """Process one durable workflow event with exponential retry and DLQ."""
-    from app.db.database import get_db
-    from app.workflows.engine import WorkflowEventEngine
-    from app.workflows.models import WorkflowEvent
-
-    db = next(get_db())
-    try:
-        event = db.query(WorkflowEvent).filter(WorkflowEvent.id == workflow_event_id).first()
-        if event is None:
-            return
-        engine = WorkflowEventEngine(db, event.organization_id)
-        try:
-            return asyncio.run(engine.process(workflow_event_id))
-        except Exception as exc:
-            if self.request.retries >= self.max_retries:
-                engine.dead_letter(workflow_event_id, str(exc))
-                return
-            raise self.retry(
-                exc=exc,
-                countdown=min(300, 2 ** (self.request.retries + 1)),
-            )
-    finally:
-        db.close()
-
-
-@celery.task(name="tasks.requeue_pending_workflow_events")
-def requeue_pending_workflow_events():
-    """Recover events persisted while the broker or worker was unavailable."""
-    from app.db.database import get_db
-    from app.workflows.models import WorkflowEvent, WorkflowEventStatus
-
-    db = next(get_db())
-    try:
-        event_ids = [
-            row[0]
-            for row in db.query(WorkflowEvent.id)
-            .filter(WorkflowEvent.status == WorkflowEventStatus.PENDING.value)
-            .order_by(WorkflowEvent.received_at)
-            .limit(500)
-            .all()
-        ]
-        for event_id in event_ids:
-            process_workflow_event.delay(event_id)
-        return len(event_ids)
-    finally:
-        db.close()
-
-
-@celery.task(name="tasks.reconcile_recovery_lifecycles")
-def reconcile_recovery_lifecycles():
-    """Open/synchronize a recovery lifecycle account for every tracked claim.
-
-    Every claim with a recovery case is a candidate lifecycle account. This
-    sweep opens the account if it does not exist yet and replays any verified
-    recoveries into it, across every tenant. It is safe to rerun: opening an
-    already-open account and synchronizing already-applied recoveries are
-    both no-ops (RecoveryLifecycleService keys both off existing records).
-
-    The actor is "system" rather than "user" since no human triggered this
-    run; call RecoveryLifecycleService directly instead of
-    RevenueRecoveryService.open_account (which always attributes to "user").
-    """
-    from app.db.database import get_db
-    from app.models.claim import Claim
-    from app.models.recovery_case import RecoveryCase
-    from app.organizations.service import OrganizationService
-    from app.recovery.lifecycle import RecoveryLifecycleService
-
-    db = next(get_db())
-    try:
-        claims = (
-            db.query(Claim.id, Claim.organization_id)
-            .join(RecoveryCase, RecoveryCase.claim_id == Claim.id)
-            .distinct()
-            .all()
-        )
-        reconciled_organizations: set[int] = set()
-        for claim_id, organization_id in claims:
-            try:
-                currency = OrganizationService(db, organization_id).get().currency
-                lifecycle = RecoveryLifecycleService(db, organization_id, currency)
-                account = lifecycle.open_account(
-                    claim_id,
-                    actor_id=None,
-                    actor_type="system",
-                    reason="Automated recovery lifecycle reconciliation",
-                    correlation_id=None,
-                )
-                lifecycle.synchronize_verified_recoveries(
-                    account,
-                    actor_id=None,
-                    actor_type="system",
-                    correlation_id=None,
-                )
-                db.commit()
-            except ValueError:
-                db.rollback()
-                continue
-            except Exception:
-                logger.exception(
-                    "Could not reconcile recovery lifecycle for claim %s", claim_id
-                )
-                db.rollback()
-                continue
-            reconciled_organizations.add(organization_id)
-        return {"processed": len(claims), "organizations": len(reconciled_organizations)}
     finally:
         db.close()

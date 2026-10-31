@@ -3,6 +3,7 @@ from functools import lru_cache
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL, make_url
 
 
 class Settings(BaseSettings):
@@ -20,21 +21,33 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    SEED_DEMO_DATA: bool = False
 
     # Security
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # PostgreSQL
-    POSTGRES_HOST: str
+    POSTGRES_HOST: str = ""
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str = ""
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
+    DATABASE_URL: str = ""
 
     # Redis
-    REDIS_HOST: str
+    REDIS_HOST: str = ""
     REDIS_PORT: int = 6379
+    REDIS_URL: str = ""
+
+    # Transactional domain-event outbox
+    EVENT_OUTBOX_BATCH_SIZE: int = 100
+    EVENT_OUTBOX_MAX_ATTEMPTS: int = 5
+    EVENT_OUTBOX_BASE_RETRY_SECONDS: int = 5
+    EVENT_OUTBOX_MAX_RETRY_SECONDS: int = 300
+    EVENT_OUTBOX_LEASE_SECONDS: int = 60
+    EVENT_OUTBOX_DISPATCH_INTERVAL_SECONDS: int = 5
 
     # AI
     AI_PROVIDER: str = "openai"
@@ -45,6 +58,8 @@ class Settings(BaseSettings):
     AI_MODEL_FAST: str = "gpt-4.1-mini"
     OPENAI_API_KEY: str = ""
     COPILOT_ENABLED: bool = True
+    AI_APPEAL_POLICY_SOURCE_MAX_CHARS: int = 2500
+    AI_APPEAL_POLICY_CONTEXT_MAX_CHARS: int = 8000
 
     # Integrations — Fernet key for encrypting OAuth tokens at rest.
     # Generate with: python -c
@@ -97,7 +112,24 @@ class Settings(BaseSettings):
     def _enforce_production_document_security(self) -> "Settings":
         """Fail closed: production must not run with throwaway document
         storage or with malware scanning disabled on uploaded evidence."""
+        postgres_values = {
+            "POSTGRES_HOST": self.POSTGRES_HOST,
+            "POSTGRES_DB": self.POSTGRES_DB,
+            "POSTGRES_USER": self.POSTGRES_USER,
+            "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
+        }
+        if not self.DATABASE_URL:
+            missing = [name for name, value in postgres_values.items() if not value]
+            if missing:
+                raise ValueError(
+                    "Set DATABASE_URL or all PostgreSQL settings; missing " + ", ".join(missing)
+                )
+        if not self.REDIS_URL and not self.REDIS_HOST:
+            raise ValueError("Set REDIS_URL or REDIS_HOST")
+
         if self.APP_ENV == "production":
+            if self.SEED_DEMO_DATA:
+                raise ValueError("Production environments must not seed demo data")
             if self.DOCUMENT_STORAGE_BACKEND == "local":
                 raise ValueError(
                     "Production environments require a durable object backend for "
@@ -119,16 +151,32 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        return (
-            f"postgresql+psycopg2://"
-            f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}"
-            f"/{self.POSTGRES_DB}"
-        )
+        if self.DATABASE_URL:
+            url = make_url(self.DATABASE_URL)
+            if url.drivername in {"postgres", "postgresql"}:
+                url = url.set(drivername="postgresql+psycopg2")
+            return url.render_as_string(hide_password=False)
+
+        return URL.create(
+            drivername="postgresql+psycopg2",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_HOST,
+            port=self.POSTGRES_PORT,
+            database=self.POSTGRES_DB,
+        ).render_as_string(hide_password=False)
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        return [
+            origin.strip().rstrip("/")
+            for origin in self.CORS_ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
 
     @property
     def redis_url(self) -> str:
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+        return self.REDIS_URL or (f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0")
 
 
 @lru_cache

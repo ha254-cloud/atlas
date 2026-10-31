@@ -2,7 +2,7 @@
 
 from .organization import Organization, OrganizationSettingsVersion
 from .user import User
-from .payer import Payer
+from .payer import Payer, PayerPolicySource
 from .patient import Patient
 from .claim import Claim
 from .claim_line import ClaimLine
@@ -22,6 +22,7 @@ from .payment import (
 )
 from .invoice import Invoice, InvoiceCreditNote, InvoiceLine
 from app.billing.models import RecoveryFeeSchedule
+from app.branches.models import Branch, Department
 from .recovery_attribution import (
     RecoveryAttributionDispute,
     RecoveryAttributionDisputeResolution,
@@ -55,6 +56,7 @@ from .password_reset_token import PasswordResetToken
 from .invitation import Invitation
 from .workflow_definition import WorkflowDefinition, WorkflowStep
 from .workflow_execution import WorkflowExecution, WorkflowStepExecution
+from app.events.models import DomainEventOutbox
 from app.workflows.models import WorkflowEvent
 from .claim_decision import ClaimDecision
 from .payer_statistics import PayerStatistics
@@ -66,6 +68,7 @@ __all__ = [
     "OrganizationSettingsVersion",
     "User",
     "Payer",
+    "PayerPolicySource",
     "Patient",
     "Claim",
     "ClaimLine",
@@ -82,6 +85,8 @@ __all__ = [
     "PaymentSource",
     "PaymentStatus",
     "RecoveryFeeSchedule",
+    "Branch",
+    "Department",
     "Invoice",
     "InvoiceCreditNote",
     "InvoiceLine",
@@ -118,6 +123,7 @@ __all__ = [
     "WorkflowStep",
     "WorkflowExecution",
     "WorkflowStepExecution",
+    "DomainEventOutbox",
     "WorkflowEvent",
     "ClaimDecision",
     "PayerStatistics",

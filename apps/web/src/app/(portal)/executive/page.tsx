@@ -76,10 +76,10 @@ export default function ExecutiveCommandCenterPage() {
         ) : (
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Net Revenue Collected" value={money(portfolio.recovered_amount)} detail="Verified cash across lifecycle accounts" icon={Landmark} accent="teal" />
-              <MetricCard label="Outstanding" value={money(portfolio.outstanding_amount)} detail={`${formatNumber(portfolio.account_count)} financial positions`} icon={WalletCards} accent="blue" />
-              <MetricCard label="Expected Recovery" value={money(portfolio.expected_recovery_amount)} detail={`${forecast.expected_collection_days} expected collection days`} icon={HandCoins} accent="amber" />
-              <MetricCard label="Forecast Confidence" value={`${Number(forecast.confidence_pct).toFixed(1)}%`} detail="Payer timing evidence coverage" icon={CircleGauge} accent="violet" />
+              <MetricCard label="Net Revenue Collected" value={money(portfolio.recovered_amount)} detail="Verified cash across lifecycle accounts" icon={Landmark} />
+              <MetricCard label="Outstanding" value={money(portfolio.outstanding_amount)} detail={`${formatNumber(portfolio.account_count)} financial positions`} icon={WalletCards} />
+              <MetricCard label="Expected Recovery" value={money(portfolio.expected_recovery_amount)} detail={`${forecast.expected_collection_days} expected collection days`} icon={HandCoins} />
+              <MetricCard label="Forecast Confidence" value={`${Number(forecast.confidence_pct).toFixed(1)}%`} detail="Payer timing evidence coverage" icon={CircleGauge} />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -140,10 +140,10 @@ export default function ExecutiveCommandCenterPage() {
             </Card>
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Atlas Recoveries" value={money(portfolio.atlas_recoveries)} detail="Verified attributed cash" icon={Banknote} accent="teal" />
-              <MetricCard label="Atlas Fees" value={money(portfolio.atlas_fees)} detail="Snapshotted fee terms" icon={ReceiptText} accent="blue" />
-              <MetricCard label="Return on Investment" value={portfolio.return_on_investment_pct === null ? "Not available" : `${Number(portfolio.return_on_investment_pct).toFixed(1)}%`} detail="Net verified recovery divided by Atlas fees" icon={BadgeDollarSign} accent="violet" />
-              <MetricCard label="Remaining at Risk" value={money(Math.max(Number(portfolio.outstanding_amount) - Number(portfolio.recoverable_amount), 0))} detail="Outstanding beyond current expected recovery" icon={WalletCards} accent="amber" />
+              <MetricCard label="Atlas Recoveries" value={money(portfolio.atlas_recoveries)} detail="Verified attributed cash" icon={Banknote} />
+              <MetricCard label="Atlas Fees" value={money(portfolio.atlas_fees)} detail="Snapshotted fee terms" icon={ReceiptText} />
+              <MetricCard label="Return on Investment" value={portfolio.return_on_investment_pct === null ? "Not available" : `${Number(portfolio.return_on_investment_pct).toFixed(1)}%`} detail="Net verified recovery divided by Atlas fees" icon={BadgeDollarSign} />
+              <MetricCard label="Remaining at Risk" value={money(Math.max(Number(portfolio.outstanding_amount) - Number(portfolio.recoverable_amount), 0))} detail="Outstanding beyond current expected recovery" icon={WalletCards} />
             </div>
           </div>
         )}

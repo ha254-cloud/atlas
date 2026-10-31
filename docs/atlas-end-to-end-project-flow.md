@@ -148,8 +148,17 @@ stateDiagram-v2
 ```
 
 Appeal generation uses claim facts, evidence, payer context, and versioned prompts.
-Draft and in-review text is editable with immutable version history. Approval is a
-human action and never automatically submits the appeal.
+Only approved, effective, same-tenant Kenya policy-source versions whose configured
+denial/procedure scope matches the claim enter the prompt. Policy references in
+sectioned drafts are rendered from those reviewed records; model citations that do
+not exactly match an approved reference are removed. Each appeal stores source
+version/checksum provenance. No applicable source produces an explicit
+policy-verification warning, not a guessed rule.
+
+Draft and in-review text is editable with immutable version history. The
+deterministic quality score measures completeness and safeguards; it is not a
+clinical-accuracy claim. Approval is a human action and never automatically
+submits the appeal.
 
 Submission requires another explicit human-triggered action. Atlas routes through a
 registered payer connector when certified connectivity exists. Otherwise, a manual

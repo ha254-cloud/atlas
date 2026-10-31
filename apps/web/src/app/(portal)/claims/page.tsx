@@ -1,12 +1,43 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Input } from "@/components/ui/input";
-import { ClaimsTable } from "@/features/claims/components/claims-table";
-import { NewClaimDialog } from "@/features/claims/components/NewClaimDialog";
-import { UploadClaimsDialog } from "@/features/claims/components/UploadClaimsDialog";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const ClaimsTable = dynamic(
+  () =>
+    import("@/features/claims/components/claims-table").then(
+      (module) => module.ClaimsTable,
+    ),
+  {
+    loading: () => (
+      <div className="space-y-3">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <Skeleton key={index} className="h-12 w-full" />
+        ))}
+      </div>
+    ),
+  },
+);
+
+const NewClaimDialog = dynamic(
+  () =>
+    import("@/features/claims/components/NewClaimDialog").then(
+      (module) => module.NewClaimDialog,
+    ),
+  { loading: () => <Skeleton className="h-9 w-24" /> },
+);
+
+const UploadClaimsDialog = dynamic(
+  () =>
+    import("@/features/claims/components/UploadClaimsDialog").then(
+      (module) => module.UploadClaimsDialog,
+    ),
+  { loading: () => <Skeleton className="h-9 w-28" /> },
+);
 
 const selectClass =
   "flex h-9 rounded-md border border-input bg-background px-2.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";

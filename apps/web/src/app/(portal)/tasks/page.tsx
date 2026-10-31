@@ -131,7 +131,7 @@ function TaskRow({
           </Button>
         )}
         <Button size="icon" variant="ghost" asChild>
-          <Link href={`/claims/${task.claim_id}`} title="Open claim">
+          <Link href={`/claims/detail?id=${task.claim_id}`} title="Open claim">
             <ChevronRight className="h-4 w-4" />
           </Link>
         </Button>

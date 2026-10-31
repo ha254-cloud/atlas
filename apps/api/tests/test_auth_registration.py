@@ -18,6 +18,13 @@ from app.db.database import Base, get_db
 from app.main import app
 
 
+@pytest.fixture(autouse=True)
+def disable_smtp_delivery(monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
+
+
 @pytest.fixture()
 def db_session():
     engine = create_engine(
@@ -280,6 +287,77 @@ def test_forgot_and_reset_password_flow(client, db_session):
 def test_forgot_password_does_not_leak_unknown_email(client):
     response = client.post("/api/v1/auth/forgot-password", json={"email": "nobody@nowhere.com"})
     assert response.status_code == 200
+
+
+def test_registration_rolls_back_when_verification_email_fails(
+    client,
+    db_session,
+    monkeypatch,
+):
+    from app.models.user import User
+    from app.services.email_service import EmailDeliveryError, EmailService
+
+    def fail_delivery(*args, **kwargs):
+        raise EmailDeliveryError("SMTP unavailable")
+
+    monkeypatch.setattr(EmailService, "send_verification_email", fail_delivery)
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "organization_name": "Delivery Failure Hospital",
+            "first_name": "Email",
+            "last_name": "Failure",
+            "email": "delivery-failure@hospital.com",
+            "password": STRONG_PASSWORD,
+        },
+    )
+
+    assert response.status_code == 503
+    assert (
+        db_session.query(User)
+        .filter(User.email == "delivery-failure@hospital.com")
+        .first()
+        is None
+    )
+
+
+def test_forgot_password_hides_delivery_failure_and_discards_token(
+    client,
+    db_session,
+    monkeypatch,
+):
+    from app.models.password_reset_token import PasswordResetToken
+    from app.services.email_service import EmailDeliveryError, EmailService
+
+    registered = client.post(
+        "/api/v1/auth/register",
+        json={
+            "organization_name": "Reset Delivery Hospital",
+            "first_name": "Reset",
+            "last_name": "Delivery",
+            "email": "reset-delivery@hospital.com",
+            "password": STRONG_PASSWORD,
+        },
+    ).json()
+
+    def fail_delivery(*args, **kwargs):
+        raise EmailDeliveryError("SMTP unavailable")
+
+    monkeypatch.setattr(EmailService, "send_password_reset_email", fail_delivery)
+
+    response = client.post(
+        "/api/v1/auth/forgot-password",
+        json={"email": "reset-delivery@hospital.com"},
+    )
+
+    assert response.status_code == 200
+    assert (
+        db_session.query(PasswordResetToken)
+        .filter(PasswordResetToken.user_id == registered["user_id"])
+        .first()
+        is None
+    )
 
 
 def test_invite_and_accept_invite_joins_existing_organization(client, db_session):

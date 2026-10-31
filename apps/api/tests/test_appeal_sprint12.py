@@ -169,6 +169,174 @@ def test_merge_citations_dedupes_by_source_and_reference():
     assert merged_new[0]["source"] == "Verified payer contract"
 
 
+def test_merge_citations_discards_unverified_model_citations():
+    from app.appeals.citations import merge_citations
+
+    merged = merge_citations(
+        [
+            {
+                "source": "Invented payer manual",
+                "reference": "Section 99",
+                "relevance": "Model supplied",
+            }
+        ],
+        [],
+    )
+
+    assert merged == []
+
+
+@pytest.mark.asyncio
+async def test_approved_policy_source_grounds_appeal_and_persists_provenance(
+    db, org_id, claim, denial, monkeypatch
+):
+    from app.ai.gateway import gateway
+    from app.appeals.service import AppealService
+    from app.models.payer import PayerPolicySource
+
+    content = "The payer accepts documented proof of timely original claim submission."
+    source = PayerPolicySource(
+        organization_id=org_id,
+        payer_id=claim.payer_id,
+        policy_code="TF-001",
+        title="Reviewed Timely Filing Guidance",
+        source_type="operating_guidance",
+        jurisdiction="KE",
+        version=1,
+        status="approved",
+        source_reference="Payer Circular 4, section 2",
+        content=content,
+        content_sha256="b" * 64,
+        effective_from=claim.service_date - timedelta(days=1),
+        denial_categories=["TIMELY_FILING"],
+        procedure_codes=[],
+        created_by=1,
+        approved_by=2,
+        change_reason="Initial reviewed version",
+    )
+    db.add(source)
+    db.commit()
+
+    prompts = []
+
+    async def fake_generate(task, prompt, system=None, *, cache_key=None):
+        prompts.append(prompt)
+        return _ai_appeal_json(
+            claim,
+            denial,
+            citations=[
+                {
+                    "source": source.title,
+                    "reference": source.source_reference,
+                    "relevance": "Supports reconsideration with filing evidence",
+                }
+            ],
+        )
+
+    monkeypatch.setattr(gateway, "generate", fake_generate)
+    appeal = await AppealService(db, org_id).generate_appeal(claim.id)
+
+    assert content in prompts[0]
+    assert appeal.citations[0]["policy_source_id"] == source.id
+    assert appeal.citations[0]["content_sha256"] == source.content_sha256
+    assert appeal.grounding_report["grounded"] is True
+    assert appeal.grounding_report["sources"][0]["id"] == source.id
+    assert appeal.quality_score["grounding"] == 100
+
+
+@pytest.mark.asyncio
+async def test_unapproved_and_cross_tenant_sources_never_ground_appeal(
+    db, org_id, claim, denial, monkeypatch
+):
+    from app.ai.gateway import gateway
+    from app.appeals.service import AppealService
+    from app.models.payer import PayerPolicySource
+
+    pending = PayerPolicySource(
+        organization_id=org_id,
+        payer_id=claim.payer_id,
+        policy_code="PENDING",
+        title="Pending Guidance",
+        source_type="operating_guidance",
+        jurisdiction="KE",
+        version=1,
+        status="pending_approval",
+        source_reference="Pending section 1",
+        content="Pending content must not be available to the appeal generation prompt.",
+        content_sha256="c" * 64,
+        effective_from=claim.service_date,
+        denial_categories=[],
+        procedure_codes=[],
+        created_by=1,
+        change_reason="Pending review",
+    )
+    cross_tenant = PayerPolicySource(
+        organization_id=999,
+        payer_id=claim.payer_id,
+        policy_code="OTHER-TENANT",
+        title="Other Tenant Guidance",
+        source_type="payer_contract",
+        jurisdiction="KE",
+        version=1,
+        status="approved",
+        source_reference="Other contract section 9",
+        content="Cross-tenant content must never be available to this organization.",
+        content_sha256="d" * 64,
+        effective_from=claim.service_date,
+        denial_categories=[],
+        procedure_codes=[],
+        created_by=1,
+        change_reason="Other tenant source",
+    )
+    db.add_all([pending, cross_tenant])
+    db.commit()
+    prompts = []
+
+    async def fake_generate(task, prompt, system=None, *, cache_key=None):
+        prompts.append(prompt)
+        return _ai_appeal_json(
+            claim,
+            denial,
+            citations=[
+                {
+                    "source": "Invented Kenya payer manual",
+                    "reference": "Section 99",
+                    "relevance": "Not reviewed",
+                }
+            ],
+        )
+
+    monkeypatch.setattr(gateway, "generate", fake_generate)
+    appeal = await AppealService(db, org_id).generate_appeal(claim.id)
+
+    assert pending.content not in prompts[0]
+    assert cross_tenant.content not in prompts[0]
+    assert appeal.citations == []
+    assert appeal.grounding_report["grounded"] is False
+    assert appeal.grounding_report["rejected_model_citation_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_ungrounded_policy_assertion_is_rejected_before_persistence(
+    db, org_id, claim, denial, monkeypatch
+):
+    from app.ai.gateway import gateway
+    from app.appeals.service import AppealService
+    from app.appeals.validator import AppealValidationError
+    from app.models.appeal import Appeal
+
+    async def fake_generate(task, prompt, system=None, *, cache_key=None):
+        data = json.loads(_ai_appeal_json(claim, denial))
+        data["appeal_letter"] += " The payer policy requires payment within thirty days."
+        return json.dumps(data)
+
+    monkeypatch.setattr(gateway, "generate", fake_generate)
+
+    with pytest.raises(AppealValidationError, match="without an approved applicable source"):
+        await AppealService(db, org_id).generate_appeal(claim.id)
+    assert db.query(Appeal).count() == 0
+
+
 # ---------------------------------------------------------------------------
 # Appeal Quality Score
 # ---------------------------------------------------------------------------

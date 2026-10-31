@@ -137,6 +137,11 @@ class Appeal(Base, TimestampMixin):
         nullable=True,
     )
 
+    grounding_report: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
     ai_provider: Mapped[str | None] = mapped_column(
         nullable=True,
     )

@@ -1,4 +1,4 @@
-from app.integrations.base import BaseConnector, PayerConnector
+from app.integrations.base import BaseConnector, SubmissionConnector
 from app.integrations.contracts import PROVIDER_CREDENTIAL_KINDS
 from app.integrations.exceptions import ConnectorNotFoundError
 
@@ -41,12 +41,12 @@ registry = IntegrationRegistry()
 
 class SubmissionConnectorRegistry:
     def __init__(self) -> None:
-        self._connectors: dict[str, type[PayerConnector]] = {}
+        self._connectors: dict[str, type[SubmissionConnector]] = {}
 
-    def register(self, name: str, connector_class: type[PayerConnector]) -> None:
+    def register(self, name: str, connector_class: type[SubmissionConnector]) -> None:
         self._connectors[name.lower()] = connector_class
 
-    def get(self, name: str, **config) -> PayerConnector:
+    def get(self, name: str, **config) -> SubmissionConnector:
         connector_class = self._connectors.get(name.lower())
         if connector_class is None:
             supported = sorted(self._connectors)

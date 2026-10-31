@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 
@@ -25,3 +27,17 @@ def test_demo_seed_uses_kenya_payers_only():
         "Social Health Authority",
     }
     assert codes == {"AAR", "BRITAM", "CIC", "JUBILEE", "SHA"}
+
+
+def test_demo_seed_is_restart_safe(monkeypatch):
+    import seed
+
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = object()
+    monkeypatch.setattr(seed, "SessionLocal", lambda: db)
+
+    seed.seed()
+
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+    db.close.assert_called_once()

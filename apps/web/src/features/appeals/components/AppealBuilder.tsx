@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, FileText, ChevronDown, ChevronUp, CheckCircle, Send, ClipboardCheck, ThumbsUp, XCircle, Save } from "lucide-react";
+import { AlertTriangle, Loader2, FileText, ChevronDown, ChevronUp, CheckCircle, Send, ClipboardCheck, ThumbsUp, XCircle, Save, ShieldCheck } from "lucide-react";
 import { appealsService, type Appeal } from "@/services/appeals-service";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -176,6 +176,17 @@ export function AppealBuilder({ claimId, recoveryId }: Props) {
   const isDirty = mode === "sectioned"
     ? JSON.stringify(sections) !== JSON.stringify(appeal.sections ?? {})
     : appealText !== appeal.appeal_text;
+  const quality = appeal.quality_score;
+  const qualityDimensions = quality
+    ? [
+        ["Completeness", quality.completeness],
+        ["Evidence", quality.evidence],
+        ["Tone", quality.tone],
+        ["Compliance", quality.compliance],
+        ["Grounding", quality.grounding],
+        ["Confidence", quality.confidence],
+      ] as const
+    : [];
 
   return (
     <div className="space-y-4">
@@ -184,6 +195,111 @@ export function AppealBuilder({ claimId, recoveryId }: Props) {
           <strong>Summary: </strong>{appeal.summary}
         </div>
       )}
+
+      {quality && (
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+              <p className="text-sm font-semibold">Draft quality checks</p>
+            </div>
+            <Badge variant={quality.flagged_for_review ? "warning" : "outline"}>
+              {quality.overall ?? 0}% overall
+            </Badge>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-6">
+            {qualityDimensions.map(([label, value]) => (
+              <div key={label}>
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums">{value ?? 0}%</p>
+              </div>
+            ))}
+          </div>
+          {quality.flagged_for_review && (
+            <p className="mt-3 text-xs text-amber-800">
+              This draft needs closer review before approval.
+            </p>
+          )}
+        </div>
+      )}
+
+      {appeal.grounding_report ? (
+        <div
+          className={
+            appeal.grounding_report.grounded
+              ? "rounded-lg border border-emerald-200 bg-emerald-50 p-4"
+              : "rounded-lg border border-amber-200 bg-amber-50 p-4"
+          }
+        >
+          <div className="flex items-center gap-2">
+            {appeal.grounding_report.grounded
+              ? <ShieldCheck className="h-4 w-4 text-emerald-700" />
+              : <AlertTriangle className="h-4 w-4 text-amber-700" />}
+            <p className="text-sm font-semibold">
+              {appeal.grounding_report.grounded
+                ? "Grounded in approved payer sources"
+                : "Payer policy verification required"}
+            </p>
+          </div>
+          {appeal.grounding_report.sources.length ? (
+            <ul className="mt-2 space-y-2">
+              {appeal.grounding_report.sources.map((source) => (
+                <li key={source.id} className="text-xs leading-5">
+                  <span className="font-medium">{source.title}</span>
+                  {" · "}{source.source_reference} · v{source.version}
+                  <span className="block font-mono text-[10px] text-muted-foreground">
+                    SHA-256 {source.content_sha256}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-xs leading-5 text-amber-900">
+              No approved, effective, claim-applicable Kenya source was available. The draft
+              must not be treated as payer-policy verified.
+            </p>
+          )}
+          {appeal.grounding_report.rejected_model_citation_count > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Atlas removed {appeal.grounding_report.rejected_model_citation_count} unverified
+              model citation(s).
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {appeal.missing_documents?.length ? (
+        <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950" role="alert">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Required evidence is not confirmed</p>
+            <p className="mt-1 text-xs leading-5">
+              {appeal.missing_documents.join(", ")}. Submission remains blocked until this evidence is confirmed.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {(appeal.attachments?.length || appeal.missing_information?.length) ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {appeal.attachments?.length ? (
+            <div className="rounded-lg border p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recommended attachments</p>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
+                {appeal.attachments.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          ) : null}
+          {appeal.missing_information?.length ? (
+            <div className="rounded-lg border p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Information to verify</p>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
+                {appeal.missing_information.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {mode === "sectioned" && Object.keys(sections).length > 0 ? (
         <div className="space-y-3">
@@ -225,7 +341,11 @@ export function AppealBuilder({ claimId, recoveryId }: Props) {
             ))}
           </ul>
         </div>
-      ) : null}
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No verified policy or clinical reference is attached to this draft.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2 pt-1">
         {isEditable && (

@@ -49,7 +49,7 @@ export function RecoveryCard({ item }: Props) {
         <p className="text-xs tabular-nums text-muted-foreground">of {formatCurrency(item.balance)}</p>
       </div>
 
-      <Link href={`/claims/${item.claim_id}`} className="justify-self-start md:justify-self-end">
+      <Link href={`/claims/detail?id=${item.claim_id}`} className="justify-self-start md:justify-self-end">
         <Button size="sm" variant="ghost" className="gap-1.5 text-xs">
           Review <ArrowRight className="h-3.5 w-3.5" />
         </Button>

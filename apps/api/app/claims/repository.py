@@ -1,6 +1,6 @@
 import builtins
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.repository import BaseRepository
 from app.models.claim import Claim
@@ -19,20 +19,34 @@ class ClaimRepository(BaseRepository):
         self.accessible_branch_ids = accessible_branch_ids
 
     def _base_query(self):
-        """All claim queries must be scoped to the current organization."""
+        """All claim queries must be scoped to the current organization.
+
+        Many-to-one/one-to-one relations use ``joinedload`` (single row per
+        claim, safe to fetch in the same JOIN). One-to-many collections use
+        ``selectinload`` instead, which issues a separate ``WHERE claim_id
+        IN (...)`` query per relation rather than multiplying result rows
+        via multiple JOINed collections in one query - that row
+        multiplication was making the paginated claims list disproportionately
+        slow as denials/recovery_cases/claim_lines/diagnoses grew. Relations
+        that aren't read on this path (``documents``, ``organization``) are
+        left lazy so callers that do need them (e.g. appeal generation) still
+        get correct data, just without paying for it on every list/detail
+        fetch.
+        """
         query = (
             self.db.query(Claim)
             .options(
                 joinedload(Claim.patient),
                 joinedload(Claim.payer),
                 joinedload(Claim.assigned_user),
-                joinedload(Claim.denials),
-                joinedload(Claim.recovery_cases),
-                joinedload(Claim.claim_lines),
-                joinedload(Claim.diagnoses),
-                joinedload(Claim.documents),
+                joinedload(Claim.branch),
+                joinedload(Claim.department),
                 joinedload(Claim.analysis),
-                joinedload(Claim.organization),
+                selectinload(Claim.denials),
+                selectinload(Claim.recovery_cases),
+                selectinload(Claim.claim_lines),
+                selectinload(Claim.diagnoses),
+                selectinload(Claim.validation_issues),
             )
             .filter(Claim.organization_id == self.organization_id)
         )

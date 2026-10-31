@@ -4,33 +4,33 @@
 
 @layer base {
   :root {
-    --background: 45 18% 97%;
-    --foreground: 160 10% 12%;
-    --card: 0 0% 100%;
+    --background: 42 20% 97%;
+    --foreground: 160 12% 11%;
+    --card: 45 25% 99%;
     --card-foreground: 160 10% 12%;
-    --popover: 0 0% 100%;
+    --popover: 45 25% 99%;
     --popover-foreground: 160 10% 12%;
-    --primary: 164 58% 28%;
+    --primary: 164 57% 27%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 42 18% 93%;
+    --secondary: 44 16% 93%;
     --secondary-foreground: 160 10% 16%;
-    --muted: 42 14% 93%;
-    --muted-foreground: 155 5% 43%;
-    --accent: 45 22% 91%;
+    --muted: 43 14% 94%;
+    --muted-foreground: 155 6% 40%;
+    --accent: 44 19% 91%;
     --accent-foreground: 160 10% 16%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 5 60% 43%;
     --destructive-foreground: 210 40% 98%;
-    --border: 45 10% 84%;
-    --input: 45 10% 80%;
+    --border: 45 10% 82%;
+    --input: 45 9% 76%;
     --ring: 164 58% 28%;
-    --radius: 0.5rem;
-    --sidebar-background: 160 12% 11%;
+    --radius: 0.45rem;
+    --sidebar-background: 162 17% 10%;
     --sidebar-foreground: 45 18% 96%;
-    --sidebar-primary: 164 53% 31%;
+    --sidebar-primary: 164 50% 30%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 10% 17%;
+    --sidebar-accent: 161 13% 16%;
     --sidebar-accent-foreground: 45 18% 96%;
-    --sidebar-border: 160 9% 20%;
+    --sidebar-border: 161 11% 21%;
   }
 
   .dark {
@@ -61,6 +61,20 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "kern" 1, "tnum" 1;
+  }
+  ::selection {
+    @apply bg-primary/15 text-foreground;
+  }
+}
+
+@layer components {
+  .atlas-workspace {
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(hsl(var(--primary) / 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.022) 1px, transparent 1px);
+    background-size: 36px 36px;
   }
 }

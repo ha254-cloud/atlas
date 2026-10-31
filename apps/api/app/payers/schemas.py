@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -16,6 +16,20 @@ PaymentMethod = Literal[
     "excel",
     "report",
     "manual",
+]
+PolicySourceType = Literal[
+    "payer_contract",
+    "benefit_schedule",
+    "operating_guidance",
+    "clinical_guideline",
+    "regulation",
+]
+PolicySourceStatus = Literal[
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "retired",
 ]
 
 
@@ -108,3 +122,62 @@ class PayerHealthCheckResult(BaseModel):
     error: str | None = None
     failure_count: int
     latency_ms: float | None = None
+
+
+class PolicySourceCreate(BaseModel):
+    policy_code: str = Field(min_length=2, max_length=80)
+    title: str = Field(min_length=3, max_length=255)
+    source_type: PolicySourceType
+    jurisdiction: str = Field(default="KE", min_length=2, max_length=2)
+    source_reference: str = Field(min_length=3, max_length=500)
+    source_uri: str | None = Field(default=None, max_length=2048)
+    content: str = Field(min_length=20, max_length=20_000)
+    effective_from: date
+    effective_to: date | None = None
+    denial_categories: list[str] = Field(default_factory=list, max_length=25)
+    procedure_codes: list[str] = Field(default_factory=list, max_length=100)
+    reason: str = Field(min_length=3, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_effective_dates(self):
+        if self.jurisdiction.upper() != "KE":
+            raise ValueError("Atlas v1 policy sources must use Kenya jurisdiction 'KE'")
+        if self.effective_to is not None and self.effective_to < self.effective_from:
+            raise ValueError("effective_to cannot be earlier than effective_from")
+        return self
+
+
+class PolicySourceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    payer_id: int
+    policy_code: str
+    title: str
+    source_type: PolicySourceType
+    jurisdiction: str
+    version: int
+    status: PolicySourceStatus
+    source_reference: str
+    source_uri: str | None = None
+    content: str
+    content_sha256: str
+    effective_from: date
+    effective_to: date | None = None
+    denial_categories: list[str]
+    procedure_codes: list[str]
+    created_by: int
+    change_reason: str
+    submitted_by: int | None = None
+    submitted_at: datetime | None = None
+    approved_by: int | None = None
+    approved_at: datetime | None = None
+    rejected_by: int | None = None
+    rejected_at: datetime | None = None
+    rejection_reason: str | None = None
+    created_at: datetime | None = None
+
+
+class PolicySourceRejection(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)

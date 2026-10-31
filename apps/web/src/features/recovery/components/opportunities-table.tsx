@@ -74,7 +74,7 @@ export function RecoveryOpportunitiesTable() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link
-                    href={`/claims/${claim.id}`}
+                    href={`/claims/detail?id=${claim.id}`}
                     className="text-primary hover:underline text-xs font-medium"
                   >
                     View

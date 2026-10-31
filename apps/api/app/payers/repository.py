@@ -1,6 +1,11 @@
+from __future__ import annotations
+
+from datetime import date
+
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.payers.models import Payer
+from app.payers.models import Payer, PayerPolicySource
 
 
 class PayerRepository:
@@ -32,4 +37,49 @@ class PayerRepository:
                 Payer.payer_code == payer_code,
             )
             .first()
+        )
+
+    def list_policy_sources(self, payer_id: int) -> list[PayerPolicySource]:
+        return (
+            self.db.query(PayerPolicySource)
+            .filter(
+                PayerPolicySource.organization_id == self.organization_id,
+                PayerPolicySource.payer_id == payer_id,
+            )
+            .order_by(PayerPolicySource.policy_code, PayerPolicySource.version.desc())
+            .all()
+        )
+
+    def get_policy_source(self, payer_id: int, source_id: int) -> PayerPolicySource | None:
+        return (
+            self.db.query(PayerPolicySource)
+            .filter(
+                PayerPolicySource.id == source_id,
+                PayerPolicySource.payer_id == payer_id,
+                PayerPolicySource.organization_id == self.organization_id,
+            )
+            .first()
+        )
+
+    def approved_policy_sources(
+        self,
+        payer_id: int,
+        *,
+        on_date: date,
+    ) -> list[PayerPolicySource]:
+        return (
+            self.db.query(PayerPolicySource)
+            .filter(
+                PayerPolicySource.payer_id == payer_id,
+                PayerPolicySource.organization_id == self.organization_id,
+                PayerPolicySource.status == "approved",
+                PayerPolicySource.jurisdiction == "KE",
+                PayerPolicySource.effective_from <= on_date,
+                or_(
+                    PayerPolicySource.effective_to.is_(None),
+                    PayerPolicySource.effective_to >= on_date,
+                ),
+            )
+            .order_by(PayerPolicySource.policy_code, PayerPolicySource.version.desc())
+            .all()
         )

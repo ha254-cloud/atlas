@@ -68,7 +68,22 @@ def _confidence_score(data: dict) -> int:
     return int(max(0, min(100, confidence)))
 
 
-def score_appeal(data: dict, evidence: EvidenceCheck, kb_citation_available: bool = False) -> dict:
+def _grounding_score(data: dict, grounding_report: dict | None) -> int:
+    if grounding_report is None:
+        return 100
+    if grounding_report.get("rejected_model_citation_count", 0):
+        return 70
+    if grounding_report.get("grounded"):
+        return 100 if data.get("citations") else 85
+    return 100 if not data.get("citations") else 0
+
+
+def score_appeal(
+    data: dict,
+    evidence: EvidenceCheck,
+    kb_citation_available: bool = False,
+    grounding_report: dict | None = None,
+) -> dict:
     """Compute the multi-dimensional quality score for a generated appeal
     draft. Returns a JSON-serializable dict suitable for `Appeal.quality_score`."""
     completeness = _completeness_score(data)
@@ -76,13 +91,15 @@ def score_appeal(data: dict, evidence: EvidenceCheck, kb_citation_available: boo
     tone = _tone_score(data)
     compliance = _compliance_score(data, kb_citation_available)
     confidence = _confidence_score(data)
+    grounding = _grounding_score(data, grounding_report)
 
     overall = round(
-        completeness * 0.25
-        + evidence_pct * 0.25
+        completeness * 0.20
+        + evidence_pct * 0.20
         + tone * 0.15
         + compliance * 0.15
-        + confidence * 0.20
+        + confidence * 0.15
+        + grounding * 0.15
     )
 
     return {
@@ -91,6 +108,7 @@ def score_appeal(data: dict, evidence: EvidenceCheck, kb_citation_available: boo
         "tone": tone,
         "compliance": compliance,
         "confidence": confidence,
+        "grounding": grounding,
         "overall": overall,
         "flagged_for_review": overall < _LOW_QUALITY_THRESHOLD,
     }

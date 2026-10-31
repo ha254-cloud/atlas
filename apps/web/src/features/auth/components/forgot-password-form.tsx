@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Activity, Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { authService } from "@/services/auth-service";
+import { getErrorMessage } from "@/lib/api-client";
+import { AtlasMark } from "@/components/brand/atlas-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +22,7 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export function ForgotPasswordForm() {
   const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
@@ -28,18 +31,23 @@ export function ForgotPasswordForm() {
   } = useForm<ForgotPasswordFormValues>({ resolver: zodResolver(forgotPasswordSchema) });
 
   async function onSubmit(values: ForgotPasswordFormValues) {
-    // Always show the same success state — the backend never reveals
-    // whether an account exists for this email.
-    await authService.forgotPassword(values).catch(() => undefined);
-    setSubmitted(true);
+    setServerError(null);
+    try {
+      await authService.forgotPassword(values);
+      setSubmitted(true);
+    } catch (error) {
+      setServerError(
+        getErrorMessage(error, "We could not process this request. Please try again."),
+      );
+    }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+    <div className="flex w-full items-center justify-center px-4 py-10 sm:px-6 lg:px-12">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
           <div className="flex items-center gap-2">
-            <Activity className="h-8 w-8 text-primary" />
+            <AtlasMark className="h-8 w-8 text-primary" />
             <span className="text-3xl font-bold">Atlas</span>
           </div>
         </div>
@@ -79,6 +87,12 @@ export function ForgotPasswordForm() {
                       <p className="text-sm text-destructive">{errors.email.message}</p>
                     )}
                   </div>
+
+                  {serverError && (
+                    <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                      {serverError}
+                    </div>
+                  )}
 
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
                     {isSubmitting ? (

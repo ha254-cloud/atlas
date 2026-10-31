@@ -21,6 +21,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.ai.denial_code_seed_data import DENIAL_CODE_SEED_DATA
+from app.billing.service import RecoveryFeeScheduleService
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.models.claim import Claim
@@ -75,6 +76,13 @@ def seed():
     try:
         print("Seeding demo data...")
 
+        existing_organization = (
+            db.query(Organization).filter(Organization.slug == "atlas-demo-clinic").first()
+        )
+        if existing_organization is not None:
+            print("Demo data already exists; skipping seed.")
+            return
+
         # Organization
         org = Organization(
             name="Atlas Demo Clinic",
@@ -123,6 +131,19 @@ def seed():
         db.add(platform_admin)
         db.flush()
         print(f"  ✓ Platform admin user: {platform_admin.email}")
+
+        RecoveryFeeScheduleService(db, org.id).create(
+            fee_percentage=Decimal("5.00"),
+            vat_percentage=Decimal("0.00"),
+            currency=org.currency,
+            payment_terms_days=30,
+            dispute_period_days=14,
+            effective_from=date.today(),
+            effective_to=None,
+            created_by=admin.id,
+            reason="Initial demo recovery fee schedule",
+        )
+        print("  ✓ Recovery fee schedule: 5.00%")
 
         # Payers
         payers = []

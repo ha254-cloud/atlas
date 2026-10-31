@@ -8,6 +8,7 @@ it does not replace clinical judgment.
 
 from app.ai.gateway import gateway
 from app.ai.prompt_loader import load_prompt
+from app.appeals.grounding import validate_policy_assertions
 from app.appeals.validator import parse_ai_response, validate_appeal
 
 
@@ -38,6 +39,10 @@ class AppealGenerator:
             claim.claim_number,
             denial_code=denial.denial_code if denial else None,
             patient_last_name=claim.patient.last_name if claim.patient else None,
+        )
+        validate_policy_assertions(
+            data.get("appeal_letter", ""),
+            has_verified_sources=bool((extra_context or {}).get("verified_policy_sources")),
         )
 
         return data
@@ -86,6 +91,13 @@ class AppealGenerator:
                     + "\n".join(f"- {c}" for c in extra_context["suggested_citations"])
                     + "\n"
                 )
+            if extra_context.get("verified_policy_sources"):
+                prompt += "\nApproved Source Excerpts:\n"
+                for source in extra_context["verified_policy_sources"]:
+                    prompt += (
+                        f"- {source['title']} ({source['reference']}), "
+                        f"version {source['version']}:\n{source['excerpt']}\n"
+                    )
 
         prompt += (
             "\nCitation guard: Use only references explicitly listed under Verified Applicable "

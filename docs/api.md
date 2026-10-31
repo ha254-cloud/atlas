@@ -82,10 +82,16 @@ constraints reject cross-organization branch, department, membership, and claim 
 | GET, POST | `/payers/{payer_id}/rules` | List or append sourced payer-rule versions |
 | GET | `/payers/{payer_id}/claims/{claim_id}/validation` | Run advisory contract and payer-rule checks |
 | GET | `/payers/{payer_id}/intelligence` | Read tenant-only payer outcome intelligence |
+| GET, POST | `/payers/{payer_id}/policy-sources` | List or create immutable governed source versions |
+| POST | `/payers/{payer_id}/policy-sources/{source_id}/submit-for-approval` | Submit a source version for independent approval |
+| POST | `/payers/{payer_id}/policy-sources/{source_id}/approve` | Approve an effective Kenya source for appeal grounding |
+| POST | `/payers/{payer_id}/policy-sources/{source_id}/reject` | Reject a source version with an audited reason |
 
 The intelligence endpoint accepts `minimum_sample_size` (5-1000, default 10).
 Recommendations are suppressed below the selected sample threshold. No endpoint
 aggregates across hospitals. See [Payer Intelligence Engine](payer-intelligence.md).
+Policy-source writes require payer configuration permission; approval/rejection
+requires payer approval permission and a different actor from the submitter.
 
 ## Recovery
 

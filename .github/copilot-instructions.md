@@ -9,8 +9,6 @@ Atlas is a healthcare revenue recovery platform intended for long-term operation
 - Prefer events between modules. Direct synchronous calls are acceptable only when the caller requires an immediate result or a shared transaction. Document the reason when introducing a new cross-domain call.
 - Preserve explicit human approval for AI-generated appeals. Never add automatic submission from appeal generation or approval.
 - Scope every tenant-owned query by `organization_id` derived from authenticated context, never client input.
-- Classify every persisted table as global platform data, directly tenant-owned, or parent-scoped. Directly tenant-owned tables require a non-null `organization_id` foreign key; parent-scoped tables require a non-null foreign key to a tenant-owned parent and may only be queried through that ownership boundary.
-- No model, API, task, event, AI call, integration, report, audit record, or cache key is complete until its organization context and cross-tenant tests are explicit.
 - Require authentication and the narrowest RBAC permission on every non-public API.
 - Record material mutations with actor, timestamp, before, after, reason, organization, and correlation ID when the infrastructure supports it. Never mutate versioned records in place.
 - Route AI calls through `AIGateway`; never call a provider SDK from domain code. Prompts and model selections must be versioned and configurable.
@@ -24,7 +22,7 @@ Atlas is a healthcare revenue recovery platform intended for long-term operation
 Before closing implementation work:
 
 1. Run focused tests for the changed behavior.
-2. Run adjacent regression tests based on blast radius, including cross-tenant access tests for tenant-owned behavior.
+2. Run adjacent regression tests based on blast radius.
 3. Run Ruff for Python changes and TypeScript type-check plus production build for web changes.
 4. Check editor diagnostics.
 5. Update relevant documentation and `docs/release-plan.md` when readiness changes.

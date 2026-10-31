@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
+  BookOpenCheck,
   CircleAlert,
   Landmark,
   Loader2,
@@ -31,7 +32,13 @@ import { useAuth } from "@/features/auth/context/auth-context";
 import { getErrorMessage } from "@/lib/api-client";
 import { cn, formatDate } from "@/lib/utils";
 import { payersService } from "@/services/payers-service";
-import type { Payer, PayerApprovalStatus, PayerHealthStatus } from "@/types/payer";
+import type {
+  Payer,
+  PayerApprovalStatus,
+  PayerHealthStatus,
+  PolicySourceStatus,
+  PolicySourceType,
+} from "@/types/payer";
 
 const APPROVAL_STATE: Record<
   PayerApprovalStatus,
@@ -50,6 +57,17 @@ const HEALTH_STATE: Record<
   not_configured: { label: "Not configured", variant: "secondary" },
   healthy: { label: "Healthy", variant: "success" },
   unhealthy: { label: "Unhealthy", variant: "destructive" },
+};
+
+const POLICY_STATE: Record<
+  PolicySourceStatus,
+  { label: string; variant: "success" | "warning" | "destructive" | "secondary" }
+> = {
+  draft: { label: "Draft", variant: "secondary" },
+  pending_approval: { label: "Pending approval", variant: "warning" },
+  approved: { label: "Approved", variant: "success" },
+  rejected: { label: "Rejected", variant: "destructive" },
+  retired: { label: "Retired", variant: "secondary" },
 };
 
 // Owner/admin/manager hold both `configure_integrations` (maker) and
@@ -177,11 +195,275 @@ function RejectPayerDialog({
   );
 }
 
+function PolicySourcesDialog({
+  payer,
+  currentUserId,
+  canManage,
+  onOpenChange,
+}: {
+  payer: Payer | null;
+  currentUserId: number | undefined;
+  canManage: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [policyCode, setPolicyCode] = useState("");
+  const [title, setTitle] = useState("");
+  const [sourceType, setSourceType] = useState<PolicySourceType>("operating_guidance");
+  const [sourceReference, setSourceReference] = useState("");
+  const [sourceUri, setSourceUri] = useState("");
+  const [content, setContent] = useState("");
+  const [effectiveFrom, setEffectiveFrom] = useState("");
+  const [effectiveTo, setEffectiveTo] = useState("");
+  const [denialCategories, setDenialCategories] = useState("");
+  const [procedureCodes, setProcedureCodes] = useState("");
+  const [reason, setReason] = useState("");
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const queryKey = ["payer-policy-sources", payer?.id];
+  const sources = useQuery({
+    queryKey,
+    queryFn: () => payersService.listPolicySources(payer!.id),
+    enabled: payer !== null,
+  });
+  const refresh = () => queryClient.invalidateQueries({ queryKey });
+
+  const create = useMutation({
+    mutationFn: () =>
+      payersService.createPolicySource(payer!.id, {
+        policy_code: policyCode,
+        title,
+        source_type: sourceType,
+        source_reference: sourceReference,
+        source_uri: sourceUri.trim() || null,
+        content,
+        effective_from: effectiveFrom,
+        effective_to: effectiveTo || null,
+        denial_categories: denialCategories.split(",").map((item) => item.trim()).filter(Boolean),
+        procedure_codes: procedureCodes.split(",").map((item) => item.trim()).filter(Boolean),
+        reason,
+      }),
+    onSuccess: () => {
+      setPolicyCode("");
+      setTitle("");
+      setSourceReference("");
+      setSourceUri("");
+      setContent("");
+      setEffectiveFrom("");
+      setEffectiveTo("");
+      setDenialCategories("");
+      setProcedureCodes("");
+      setReason("");
+      setMessage("Immutable policy version created in draft.");
+      void refresh();
+    },
+    onError: (error) => setMessage(getErrorMessage(error, "Policy version could not be created.")),
+  });
+  const submit = useMutation({
+    mutationFn: (sourceId: number) => payersService.submitPolicySource(payer!.id, sourceId),
+    onSuccess: () => { setMessage("Policy version submitted for independent approval."); void refresh(); },
+    onError: (error) => setMessage(getErrorMessage(error, "Policy version could not be submitted.")),
+  });
+  const approve = useMutation({
+    mutationFn: (sourceId: number) => payersService.approvePolicySource(payer!.id, sourceId),
+    onSuccess: () => { setMessage("Policy version approved for appeal grounding."); void refresh(); },
+    onError: (error) => setMessage(getErrorMessage(error, "Policy version could not be approved.")),
+  });
+  const reject = useMutation({
+    mutationFn: (sourceId: number) =>
+      payersService.rejectPolicySource(payer!.id, sourceId, rejectionReason),
+    onSuccess: () => {
+      setRejectingId(null);
+      setRejectionReason("");
+      setMessage("Policy version rejected.");
+      void refresh();
+    },
+    onError: (error) => setMessage(getErrorMessage(error, "Policy version could not be rejected.")),
+  });
+
+  const canCreate =
+    payer?.approval_status === "approved"
+    && policyCode.trim().length >= 2
+    && title.trim().length >= 3
+    && sourceReference.trim().length >= 3
+    && content.trim().length >= 20
+    && Boolean(effectiveFrom)
+    && reason.trim().length >= 3;
+
+  return (
+    <Dialog open={payer !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Governed policy sources · {payer?.name}</DialogTitle>
+          <DialogDescription>
+            Only independently approved, effective Kenya sources can ground an appeal. New
+            revisions create immutable versions and retire the prior approved version.
+          </DialogDescription>
+        </DialogHeader>
+
+        {message && <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">{message}</p>}
+
+        {canManage && payer?.approval_status === "approved" && (
+          <div className="space-y-4 rounded-lg border p-4">
+            <div>
+              <p className="text-sm font-semibold">Create a policy version</p>
+              <p className="text-xs text-muted-foreground">
+                Enter reviewed source text, not an AI summary. Reuse a policy code to create its
+                next version.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="policy-code">Policy code</Label>
+                <Input id="policy-code" value={policyCode} onChange={(event) => setPolicyCode(event.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="policy-title">Title</Label>
+                <Input id="policy-title" value={title} onChange={(event) => setTitle(event.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="policy-type">Source type</Label>
+                <select
+                  id="policy-type"
+                  value={sourceType}
+                  onChange={(event) => setSourceType(event.target.value as PolicySourceType)}
+                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="payer_contract">Payer contract</option>
+                  <option value="benefit_schedule">Benefit schedule</option>
+                  <option value="operating_guidance">Operating guidance</option>
+                  <option value="clinical_guideline">Clinical guideline</option>
+                  <option value="regulation">Regulation</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="policy-reference">Source reference</Label>
+                <Input id="policy-reference" value={sourceReference} onChange={(event) => setSourceReference(event.target.value)} className="mt-1" placeholder="Document and section" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="policy-uri">Source URL (optional)</Label>
+                <Input id="policy-uri" type="url" value={sourceUri} onChange={(event) => setSourceUri(event.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="effective-from">Effective from</Label>
+                <Input id="effective-from" type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="effective-to">Effective to (optional)</Label>
+                <Input id="effective-to" type="date" value={effectiveTo} onChange={(event) => setEffectiveTo(event.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="denial-categories">Denial categories</Label>
+                <Input id="denial-categories" value={denialCategories} onChange={(event) => setDenialCategories(event.target.value)} className="mt-1" placeholder="PRIOR_AUTHORIZATION, CODING" />
+              </div>
+              <div>
+                <Label htmlFor="procedure-codes">Procedure codes</Label>
+                <Input id="procedure-codes" value={procedureCodes} onChange={(event) => setProcedureCodes(event.target.value)} className="mt-1" placeholder="99213, 93000" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="policy-content">Reviewed source text</Label>
+                <Textarea id="policy-content" value={content} onChange={(event) => setContent(event.target.value)} className="mt-1 min-h-32" maxLength={20000} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="policy-reason">Change reason</Label>
+                <Textarea id="policy-reason" value={reason} onChange={(event) => setReason(event.target.value)} className="mt-1" maxLength={500} />
+              </div>
+            </div>
+            <Button disabled={!canCreate || create.isPending} onClick={() => create.mutate()}>
+              {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+              Create draft version
+            </Button>
+          </div>
+        )}
+
+        {payer?.approval_status !== "approved" && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Approve the payer configuration before approving policy sources.
+          </p>
+        )}
+
+        <div className="space-y-3">
+          <p className="text-sm font-semibold">Version history</p>
+          {sources.isLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : sources.isError ? (
+            <p className="text-sm text-destructive">Policy sources could not be loaded.</p>
+          ) : sources.data?.length ? (
+            sources.data.map((source) => {
+              const state = POLICY_STATE[source.status];
+              const isSubmitter = source.submitted_by === currentUserId;
+              return (
+                <div key={source.id} className="rounded-lg border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{source.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {source.policy_code} · version {source.version} · {source.source_reference}
+                      </p>
+                    </div>
+                    <Badge variant={state.variant}>{state.label}</Badge>
+                  </div>
+                  <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-xs leading-5">{source.content}</p>
+                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                    <span>Effective {formatDate(source.effective_from)}</span>
+                    <span>{source.denial_categories.join(", ") || "All denial categories"}</span>
+                    <span>{source.procedure_codes.join(", ") || "All procedures"}</span>
+                  </div>
+                  <p className="mt-2 truncate font-mono text-[10px] text-muted-foreground">
+                    SHA-256 {source.content_sha256}
+                  </p>
+                  {source.rejection_reason && (
+                    <p className="mt-2 text-xs text-destructive">{source.rejection_reason}</p>
+                  )}
+                  {canManage && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(source.status === "draft" || source.status === "rejected") && (
+                        <Button size="sm" variant="outline" disabled={submit.isPending} onClick={() => submit.mutate(source.id)}>
+                          Submit for approval
+                        </Button>
+                      )}
+                      {source.status === "pending_approval" && (
+                        <>
+                          <Button size="sm" disabled={approve.isPending || isSubmitter} onClick={() => approve.mutate(source.id)}>
+                            Approve source
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" disabled={isSubmitter} onClick={() => { setRejectingId(source.id); setRejectionReason(""); }}>
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {rejectingId === source.id && (
+                    <div className="mt-3 flex flex-col gap-2 border-t pt-3 sm:flex-row">
+                      <Input value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Required rejection reason" maxLength={500} />
+                      <Button variant="destructive" disabled={rejectionReason.trim().length < 3 || reject.isPending} onClick={() => reject.mutate(source.id)}>
+                        Confirm rejection
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              No reviewed policy source has been added for this payer.
+            </p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PayersPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<Payer | null>(null);
+  const [policyTarget, setPolicyTarget] = useState<Payer | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const canManage = user ? CAN_MANAGE_ROLES.has(user.role) : false;
 
@@ -296,9 +578,7 @@ export default function PayersPage() {
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="rounded-md bg-blue-50 p-2.5 text-blue-700">
-                            <Landmark className="h-5 w-5" />
-                          </div>
+                          <Landmark className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
                           <div>
                             <h3 className="font-semibold">{payer.name}</h3>
                             <p className="text-xs text-muted-foreground">{payer.payer_code}</p>
@@ -331,6 +611,14 @@ export default function PayersPage() {
                       )}
 
                       <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPolicyTarget(payer)}
+                        >
+                          <BookOpenCheck className="h-3.5 w-3.5" />
+                          Policy sources
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -399,6 +687,12 @@ export default function PayersPage() {
         payer={rejectTarget}
         onOpenChange={(open) => { if (!open) setRejectTarget(null); }}
         onRejected={() => { setMessage("Payer rejected."); setRejectTarget(null); void refresh(); }}
+      />
+      <PolicySourcesDialog
+        payer={policyTarget}
+        currentUserId={user?.id}
+        canManage={canManage}
+        onOpenChange={(open) => { if (!open) setPolicyTarget(null); }}
       />
     </div>
   );

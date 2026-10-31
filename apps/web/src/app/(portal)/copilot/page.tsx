@@ -76,7 +76,7 @@ function ResultRows({ rows }: { rows: CopilotClaimResult[] }) {
         const amount = claim.estimated_recovery ?? claim.outstanding_amount ?? claim.billed_amount;
         return (
           <Link
-            href={id ? `/claims/${id}` : "/claims"}
+            href={id ? `/claims/detail?id=${id}` : "/claims"}
             key={claim.claim_number}
             className="grid grid-cols-[1fr_auto] gap-4 border-b px-3 py-2.5 last:border-b-0 hover:bg-muted/50"
           >
@@ -102,8 +102,8 @@ function MessageBubble({ message }: { message: CopilotMessage }) {
   return (
     <div className={cn("flex gap-3", assistant ? "justify-start" : "justify-end")}>
       {assistant && (
-        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-emerald-50 text-emerald-700">
-          <Compass className="h-4 w-4" />
+        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center border text-muted-foreground">
+          <Compass className="h-4 w-4" strokeWidth={1.75} />
         </div>
       )}
       <div className={cn(
@@ -248,9 +248,7 @@ export default function CopilotPage() {
               {messages.length === 0 && !loading ? (
                 <div className="my-auto py-10">
                   <div className="mb-8 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-emerald-50 text-emerald-700">
-                      <Compass className="h-5 w-5" />
-                    </div>
+                    <Compass className="h-5 w-5 text-primary" strokeWidth={1.75} />
                     <div>
                       <h2 className="text-lg font-semibold">Revenue intelligence</h2>
                       <p className="text-sm text-muted-foreground">What needs attention today?</p>

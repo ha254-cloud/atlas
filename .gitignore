@@ -14,10 +14,12 @@ __pycache__/
 # JavaScript
 node_modules/
 .next/
+out/
 *.tsbuildinfo
 
 # Local uploads and build output
 apps/api/uploads/
+/uploads/
 
 # Local test transcripts and ad hoc verification artifacts
 pytest_*.txt

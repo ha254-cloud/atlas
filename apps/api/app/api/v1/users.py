@@ -8,6 +8,7 @@ from app.schemas.auth import TokenResponse
 from app.schemas.invitation import AcceptInviteRequest, InviteRequest, InviteResponse, UserRead
 from app.security.dependencies import require_permission
 from app.security.permissions import Permission
+from app.services.email_service import EmailDeliveryError
 from app.services.invitation_service import InvitationService
 
 router = APIRouter(
@@ -43,6 +44,12 @@ def invite_user(
             payload.email,
             payload.role,
             invited_by=current_user.id,
+        )
+    except EmailDeliveryError:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Invitation email delivery is temporarily unavailable",
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

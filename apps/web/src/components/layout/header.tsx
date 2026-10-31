@@ -38,27 +38,27 @@ export function Header({ title }: HeaderProps) {
   const unread = notifications.data ?? [];
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 sm:px-6">
-      <h1 className="truncate text-lg font-semibold">{title}</h1>
+    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card/95 px-4 shadow-[0_1px_2px_rgba(20,35,29,0.04)] backdrop-blur-sm sm:px-6">
+      <h1 className="truncate text-lg font-semibold tracking-[-0.015em]">{title}</h1>
       <div className="flex items-center gap-3">
         {canViewTasks && (
           <div className="relative">
             <Button
               variant="ghost"
               size="icon"
-              className="relative"
+              className="relative text-muted-foreground hover:text-foreground"
               title={`${unread.length} unread task notifications`}
               onClick={() => setNotificationsOpen((open) => !open)}
             >
               <Bell className="h-5 w-5" />
               {unread.length > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
                   {unread.length > 99 ? "99+" : unread.length}
                 </span>
               )}
             </Button>
             {notificationsOpen && (
-              <div className="absolute right-0 top-11 z-50 w-[min(22rem,calc(100vw-5rem))] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg">
+              <div className="absolute right-0 top-11 z-50 w-[min(22rem,calc(100vw-5rem))] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-[0_12px_32px_rgba(20,35,29,0.12)]">
                 <div className="border-b px-4 py-3">
                   <p className="text-sm font-semibold">Task notifications</p>
                   <p className="text-xs text-muted-foreground">{unread.length} unread</p>
@@ -88,7 +88,7 @@ export function Header({ title }: HeaderProps) {
           </div>
         )}
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-sm font-semibold text-primary">
             {user?.first_name?.[0]}
             {user?.last_name?.[0]}
           </div>

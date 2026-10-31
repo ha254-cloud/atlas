@@ -302,6 +302,51 @@ def test_sectioned_generator_context_includes_patient_and_payer_and_hospital_nam
     assert context["hospital_name"] == "Nairobi General Hospital"
 
 
+@pytest.mark.asyncio
+async def test_sectioned_generator_uses_one_grounded_json_call(claim, analysis, monkeypatch):
+    from app.ai.gateway import gateway
+    from app.appeals.sectioned_generator import SECTIONS, SectionedAppealGenerator
+
+    calls = []
+    sections = {
+        "introduction": (
+            "We request reconsideration of claim CLM-LIFECYCLE-001 for patient Jane Doe."
+        ),
+        "medical_necessity": "The documented diagnosis M54.5 supports review of the service.",
+        "coding_justification": "Procedure 99213 with modifier 25 should be reviewed.",
+        "policy_references": "Payer policy verification is required before submission.",
+        "supporting_documents": "No supporting documents are represented as attached.",
+        "requested_action": "Please reconsider and reprocess the claim.",
+        "signature": "Sincerely,\nAuthorized Provider Representative",
+    }
+
+    async def fake_generate_json(task, prompt, system=None, *, cache_key=None):
+        calls.append({"task": task, "prompt": prompt, "system": system})
+        return {
+            "title": "Claim reconsideration",
+            "summary": "Grounded appeal draft",
+            "sections": sections,
+            "key_arguments": ["Review the documented coding"],
+            "citations": [],
+            "attachments": [],
+            "missing_information": ["Verified payer policy"],
+            "confidence": 82,
+        }
+
+    monkeypatch.setattr(gateway, "generate_json", fake_generate_json)
+
+    result = await SectionedAppealGenerator().generate(claim, analysis=analysis)
+
+    assert len(calls) == 1
+    assert calls[0]["task"] == "appeal_sectioned"
+    assert "Never invent clinical facts" in calls[0]["system"]
+    assert "M54.5" in calls[0]["prompt"]
+    assert set(result["sections"]) == set(SECTIONS)
+    assert result["confidence"] == 82
+    assert "CLM-LIFECYCLE-001" in result["appeal_letter"]
+    assert "Jane Doe" in result["appeal_letter"]
+
+
 def test_evidence_collector_flags_documents_it_cannot_verify(claim):
     from app.appeals.evidence import EvidenceCollector
 

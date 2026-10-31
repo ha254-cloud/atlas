@@ -29,11 +29,11 @@ export default function AnalyticsPage() {
       : query.isError || !data ? <div className="flex h-64 items-center justify-center text-sm text-destructive"><AlertCircle className="mr-2 h-4 w-4" />Finance intelligence could not be loaded.</div>
       : <div className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <MetricCard label="Today's Collections" value={formatCurrency(data.executive.todays_collections)} detail="Posted payment records" icon={CircleDollarSign} accent="teal" />
-          <MetricCard label="Outstanding Claims" value={formatCurrency(data.executive.outstanding_claims)} detail={`${data.executive.collection_rate_pct}% collection rate`} icon={WalletCards} accent="blue" />
-          <MetricCard label="Recoverable" value={formatCurrency(data.executive.recoverable_revenue)} detail="Open scored opportunities" icon={Gauge} accent="violet" />
-          <MetricCard label="Atlas Recoveries" value={formatCurrency(data.executive.atlas_attributed_recoveries)} detail="Attributed payment events" icon={Landmark} accent="teal" />
-          <MetricCard label="Unclassified Leakage" value={formatCurrency(data.executive.unclassified_leakage)} detail="Outstanding, not classified as lost" icon={ShieldAlert} accent="amber" />
+          <MetricCard label="Today's Collections" value={formatCurrency(data.executive.todays_collections)} detail="Posted payment records" icon={CircleDollarSign} />
+          <MetricCard label="Outstanding Claims" value={formatCurrency(data.executive.outstanding_claims)} detail={`${data.executive.collection_rate_pct}% collection rate`} icon={WalletCards} />
+          <MetricCard label="Recoverable" value={formatCurrency(data.executive.recoverable_revenue)} detail="Open scored opportunities" icon={Gauge} />
+          <MetricCard label="Atlas Recoveries" value={formatCurrency(data.executive.atlas_attributed_recoveries)} detail="Attributed payment events" icon={Landmark} />
+          <MetricCard label="Unclassified Leakage" value={formatCurrency(data.executive.unclassified_leakage)} detail="Outstanding, not classified as lost" icon={ShieldAlert} />
         </div>
         <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
           <Card><CardHeader><CardTitle className="text-base">Hospital revenue health</CardTitle></CardHeader><CardContent>
@@ -58,7 +58,7 @@ export default function AnalyticsPage() {
             <div className="flex items-center justify-between"><span className="text-sm text-muted-foreground">Overpaid claims</span><span className={data.reconciliation.overpaid_claim_count ? "font-semibold text-amber-700" : "font-semibold"}>{formatNumber(data.reconciliation.overpaid_claim_count)}</span></div>
           </CardContent></Card>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Potential Revenue" value={formatCurrency(data.executive.potential_revenue)} detail="Total submitted claim value" icon={Banknote} accent="blue" /><MetricCard label="Collected Revenue" value={formatCurrency(data.executive.collected_revenue)} detail="Cumulative claim payments" icon={Landmark} accent="teal" /><MetricCard label="Payment Currencies" value={data.reconciliation.currencies.join(", ") || data.executive.currency} detail="Currencies remain separately reconciled" icon={WalletCards} accent="neutral" /></div>
+        <div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Potential Revenue" value={formatCurrency(data.executive.potential_revenue)} detail="Total submitted claim value" icon={Banknote} /><MetricCard label="Collected Revenue" value={formatCurrency(data.executive.collected_revenue)} detail="Cumulative claim payments" icon={Landmark} /><MetricCard label="Payment Currencies" value={data.reconciliation.currencies.join(", ") || data.executive.currency} detail="Currencies remain separately reconciled" icon={WalletCards} /></div>
       </div>}
     </PageContainer></div></div>
   );

@@ -68,12 +68,12 @@ class InvitationService:
             entity_id=invitation.id,
             metadata={"email": email, "role": role.value if hasattr(role, "value") else role},
         )
-        self.db.commit()
-        self.db.refresh(invitation)
-
         self.email_service.send_invitation_email(
             email, token, organization.name if organization else "Atlas"
         )
+
+        self.db.commit()
+        self.db.refresh(invitation)
         return invitation
 
     def accept(self, token: str, first_name: str, last_name: str, password: str) -> dict:

@@ -8,15 +8,54 @@ import {
   Ban, CircleDollarSign, Timer,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
-import { PageContainer } from "@/components/common/page-container";
 import { Card, CardContent } from "@/components/ui/card";
-import { MetricCard } from "@/components/ui/metric-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClaimsOverviewChart } from "@/features/dashboard/components/charts/claims-overview-chart";
 import { dashboardService } from "@/services/dashboard-service";
 import { workspaceService } from "@/services/workspace-service";
 import { PriorityBadge } from "@/features/recovery/components/PriorityBadge";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
+
+// Soft, tinted icon-chip treatment (subtle background + ring + matching icon
+// tone) instead of a flat, saturated block with a white glyph — reads as a
+// more refined, editorial style rather than an "ordinary" default icon.
+const ACCENT_STYLES = {
+  blue:    { bg: "bg-blue-50",    ring: "ring-blue-100",    icon: "text-blue-600" },
+  orange:  { bg: "bg-orange-50",  ring: "ring-orange-100",  icon: "text-orange-600" },
+  indigo:  { bg: "bg-indigo-50",  ring: "ring-indigo-100",  icon: "text-indigo-600" },
+  emerald: { bg: "bg-emerald-50", ring: "ring-emerald-100", icon: "text-emerald-600" },
+} as const;
+
+type Accent = keyof typeof ACCENT_STYLES;
+
+function KpiCard({
+  title, value, sub, icon: Icon, accent, loading,
+}: {
+  title: string; value: string; sub?: string;
+  icon: React.ElementType; accent: Accent; loading?: boolean;
+}) {
+  const style = ACCENT_STYLES[accent];
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
+            {loading ? (
+              <Skeleton className="h-8 w-36 mt-1.5" />
+            ) : (
+              <p className="text-2xl font-bold mt-1">{value}</p>
+            )}
+            {sub && !loading && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+          </div>
+          <div className={cn("rounded-xl p-2.5 ring-1 ring-inset", style.bg, style.ring)}>
+            <Icon className={cn("h-5 w-5", style.icon)} strokeWidth={1.75} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function CommandCenterPage() {
   const { data: dash, isLoading: dashLoading } = useQuery({
@@ -40,41 +79,40 @@ export default function CommandCenterPage() {
   return (
     <div className="flex flex-col h-full">
       <Header title="Recovery Command Center" />
-      <div className="flex-1 overflow-y-auto">
-        <PageContainer>
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
         {/* KPI row */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Recoverable Revenue"
+          <KpiCard
+            title="Recoverable Revenue"
             value={m ? formatCurrency(m.estimated_recovery) : "—"}
-            detail={`${m ? formatNumber(m.recovery_opportunities) : "—"} open cases`}
+            sub={`${m ? formatNumber(m.recovery_opportunities) : "—"} open cases`}
             icon={Banknote}
-            accent="teal"
-            loading={dashLoading}
-          />
-          <MetricCard
-            label="Claims Requiring Attention"
-            value={m ? formatNumber(m.claims_requiring_attention) : "—"}
-            detail="Denied or pending"
-            icon={AlertCircle}
-            accent="amber"
-            loading={dashLoading}
-          />
-          <MetricCard
-            label="Recommendation Accuracy"
-            value={m ? `${m.ai_success_rate}%` : "—"}
-            detail="Accepted recommendations"
-            icon={ClipboardCheck}
-            accent="violet"
-            loading={dashLoading}
-          />
-          <MetricCard
-            label="Appeals Pending"
-            value={m ? formatNumber(m.appeals_pending) : "—"}
-            detail="Awaiting payer response"
-            icon={Clock}
             accent="blue"
+            loading={dashLoading}
+          />
+          <KpiCard
+            title="Claims Requiring Attention"
+            value={m ? formatNumber(m.claims_requiring_attention) : "—"}
+            sub="Denied or pending"
+            icon={AlertCircle}
+            accent="orange"
+            loading={dashLoading}
+          />
+          <KpiCard
+            title="Recommendation Accuracy"
+            value={m ? `${m.ai_success_rate}%` : "—"}
+            sub="Accepted recommendations"
+            icon={ClipboardCheck}
+            accent="indigo"
+            loading={dashLoading}
+          />
+          <KpiCard
+            title="Appeals Pending"
+            value={m ? formatNumber(m.appeals_pending) : "—"}
+            sub="Awaiting payer response"
+            icon={Clock}
+            accent="emerald"
             loading={dashLoading}
           />
         </div>
@@ -186,7 +224,7 @@ export default function CommandCenterPage() {
                         <td className="px-4 py-3 text-right text-muted-foreground text-xs">{c.confidence}%</td>
                         <td className="px-4 py-3 text-right">
                           <Link
-                            href={`/claims/${c.claim_id}`}
+                            href={`/claims/detail?id=${c.claim_id}`}
                             className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline font-medium"
                           >
                             Open <ChevronRight className="h-3 w-3" />
@@ -203,7 +241,6 @@ export default function CommandCenterPage() {
 
         {/* Trend chart */}
         <ClaimsOverviewChart data={dash?.recovery_trend} />
-        </PageContainer>
       </div>
     </div>
   );

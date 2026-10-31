@@ -3,7 +3,51 @@ import { api } from "@/lib/api-client";
 export interface Appeal {
   id: number; claim_id: number; status: string; appeal_text: string;
   summary: string | null; sections: Record<string, string> | null;
-  citations: Array<{ source: string; reference: string; relevance: string }> | null;
+  citations: Array<{
+    source: string;
+    reference: string;
+    relevance: string;
+    policy_source_id?: number;
+    policy_code?: string;
+    version?: number;
+    content_sha256?: string;
+  }> | null;
+  attachments: string[] | null;
+  missing_information: string[] | null;
+  missing_documents: string[] | null;
+  quality_score: {
+    completeness?: number;
+    evidence?: number;
+    tone?: number;
+    compliance?: number;
+    confidence?: number;
+    grounding?: number;
+    overall?: number;
+    flagged_for_review?: boolean;
+  } | null;
+  grounding_report: {
+    jurisdiction: "KE";
+    payer_id: number;
+    claim_service_date: string;
+    denial_category: string | null;
+    procedure_codes: string[];
+    grounded: boolean;
+    policy_section_mode: "verified_sources" | "verification_required";
+    source_count: number;
+    sources: Array<{
+      id: number;
+      policy_code: string;
+      title: string;
+      version: number;
+      source_reference: string;
+      content_sha256: string;
+      effective_from: string;
+      effective_to: string | null;
+      approved_at: string | null;
+    }>;
+    accepted_citation_count: number;
+    rejected_model_citation_count: number;
+  } | null;
   analysis_id: number | null;
   confirmation_number: string | null;
   response_due_date: string | null;
@@ -19,10 +63,6 @@ export interface AppealListItem extends Appeal {
   patient_name: string;
   billed_amount: number;
   service_date: string | null;
-  quality_score?: {
-    overall?: number;
-    flagged_for_review?: boolean;
-  } | null;
   submitted_at?: string | null;
 }
 
@@ -55,4 +95,3 @@ export const appealsService = {
     return api.get<Appeal>(`/api/v1/appeals/${id}`);
   },
 };
-

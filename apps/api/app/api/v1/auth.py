@@ -19,6 +19,7 @@ from app.schemas.user import UserResponse
 from app.security.dependencies import get_current_user
 from app.security.jwt import decode_access_token
 from app.services.auth_service import AuthService
+from app.services.email_service import EmailDeliveryError
 
 router = APIRouter(
     prefix="/auth",
@@ -38,6 +39,12 @@ def register(
     in one transaction, then emails a verification link."""
     try:
         return AuthService(db).register(payload)
+    except EmailDeliveryError:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Verification email delivery is temporarily unavailable",
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

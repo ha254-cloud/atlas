@@ -6,6 +6,11 @@ from app.ai.cost_tracking import ai_call_context
 from app.appeals.citations import citations_for_denial_type, merge_citations
 from app.appeals.evidence import EvidenceCheck, EvidenceCollector, MissingEvidenceError
 from app.appeals.generator import AppealGenerator
+from app.appeals.grounding import (
+    build_grounding_report,
+    policy_source_citation,
+    policy_source_prompt_context,
+)
 from app.appeals.quality import score_appeal
 from app.appeals.repository import AppealRepository
 from app.appeals.sectioned_generator import SectionedAppealGenerator
@@ -20,6 +25,7 @@ from app.models.claim_event import ClaimEventType
 from app.models.claim_workflow import ClaimWorkflowState
 from app.models.denial import Denial
 from app.models.organization import Organization
+from app.payers.policies import PayerPolicyService
 from app.repositories.denial_code_repository import DenialCodeRepository
 from app.validation.rules import TIMELY_FILING_DAYS
 from app.workflows.service import WorkflowService
@@ -85,7 +91,16 @@ class AppealService:
             denial_code_info = {"required_documents": denial_code_entry.required_documents}
         return EvidenceCollector().check(claim, denial_code_info, claim.documents)
 
-    def _build_extra_context(self, claim, denial_code_entry=None) -> dict:
+    @staticmethod
+    def _denial_category(analysis=None, denial_code_entry=None) -> str | None:
+        if analysis is not None and analysis.denial_category:
+            return str(analysis.denial_category).upper()
+        if denial_code_entry is None or denial_code_entry.category is None:
+            return None
+        category = denial_code_entry.category
+        return str(getattr(category, "value", category)).upper()
+
+    def _build_extra_context(self, claim, denial_code_entry=None, analysis=None) -> dict:
         """Sprint 12 richer AI context: a short human-readable summary of
         supporting documents already on file (drawn from real extracted
         text/AI summaries, not just filenames) and KB-grounded citation
@@ -104,14 +119,50 @@ class AppealService:
         if doc_lines:
             extra["documents_summary"] = "\n".join(doc_lines)
 
-        if denial_code_entry is not None:
-            kb_citations = citations_for_denial_type(denial_code_entry.category)
-            if kb_citations:
-                extra["suggested_citations"] = [
-                    f"{c.source} {c.reference} — {c.description}" for c in kb_citations
-                ]
+        denial_category = self._denial_category(analysis, denial_code_entry)
+        procedure_codes = {line.cpt_code for line in claim.claim_lines if line.cpt_code}
+        policy_sources = PayerPolicyService(self.db, self.organization_id).applicable(
+            claim.payer_id,
+            on_date=claim.service_date or date.today(),
+            denial_category=denial_category,
+            procedure_codes=procedure_codes,
+        )
+        prompt_sources = policy_source_prompt_context(policy_sources)
+        kb_citations = (
+            citations_for_denial_type(denial_code_entry.category) if denial_code_entry else []
+        )
+        verified_citations = kb_citations + [
+            policy_source_citation(source) for source in policy_sources
+        ]
+        if verified_citations:
+            extra["suggested_citations"] = [
+                f"{citation.source} {citation.reference} — {citation.description}"
+                for citation in verified_citations
+            ]
+        extra["verified_policy_sources"] = prompt_sources
+        extra["_verified_citations"] = verified_citations
+        extra["_policy_sources"] = policy_sources
+        extra["_denial_category"] = denial_category
+        extra["_procedure_codes"] = procedure_codes
 
         return extra
+
+    def _finalize_grounding(self, data: dict, claim, extra_context: dict) -> dict:
+        model_citations = data.get("citations")
+        accepted_citations = merge_citations(
+            model_citations,
+            extra_context["_verified_citations"],
+        )
+        data["citations"] = accepted_citations
+        return build_grounding_report(
+            payer_id=claim.payer_id,
+            service_date=claim.service_date or date.today(),
+            denial_category=extra_context["_denial_category"],
+            procedure_codes=extra_context["_procedure_codes"],
+            sources=extra_context["_policy_sources"],
+            model_citations=model_citations,
+            accepted_citations=accepted_citations,
+        )
 
     def _persist_appeal(
         self,
@@ -122,6 +173,7 @@ class AppealService:
         analysis_id=None,
         missing_documents=None,
         quality_score=None,
+        grounding_report=None,
     ) -> Appeal:
         appeal = Appeal(
             organization_id=self.organization_id,
@@ -138,6 +190,7 @@ class AppealService:
             missing_information=data.get("missing_information") or None,
             missing_documents=missing_documents or None,
             quality_score=quality_score,
+            grounding_report=grounding_report,
             ai_provider=provider,
             generated_by="ai",
             current_version=1,
@@ -191,17 +244,17 @@ class AppealService:
         if require_evidence and evidence.needs_verification:
             raise MissingEvidenceError(evidence.needs_verification)
 
-        extra_context = self._build_extra_context(claim, denial_code_entry)
+        extra_context = self._build_extra_context(claim, denial_code_entry, analysis)
         with ai_call_context(organization_id=self.organization_id, claim_id=claim_id):
             data = await AppealGenerator().generate(
                 claim, denial, analysis, organization, extra_context
             )
-        data["citations"] = merge_citations(
-            data.get("citations"),
-            citations_for_denial_type(denial_code_entry.category) if denial_code_entry else [],
-        )
+        grounding_report = self._finalize_grounding(data, claim, extra_context)
         quality_score = score_appeal(
-            data, evidence, kb_citation_available=bool(extra_context.get("suggested_citations"))
+            data,
+            evidence,
+            kb_citation_available=bool(extra_context.get("suggested_citations")),
+            grounding_report=grounding_report,
         )
         return self._persist_appeal(
             claim_id,
@@ -210,6 +263,7 @@ class AppealService:
             analysis_id=analysis.id if analysis else None,
             missing_documents=evidence.needs_verification,
             quality_score=quality_score,
+            grounding_report=grounding_report,
         )
 
     async def generate_sectioned_appeal(
@@ -222,17 +276,17 @@ class AppealService:
         if require_evidence and evidence.needs_verification:
             raise MissingEvidenceError(evidence.needs_verification)
 
-        extra_context = self._build_extra_context(claim, denial_code_entry)
+        extra_context = self._build_extra_context(claim, denial_code_entry, analysis)
         with ai_call_context(organization_id=self.organization_id, claim_id=claim_id):
             data = await SectionedAppealGenerator().generate(
                 claim, denial, analysis, organization, extra_context
             )
-        data["citations"] = merge_citations(
-            data.get("citations"),
-            citations_for_denial_type(denial_code_entry.category) if denial_code_entry else [],
-        )
+        grounding_report = self._finalize_grounding(data, claim, extra_context)
         quality_score = score_appeal(
-            data, evidence, kb_citation_available=bool(extra_context.get("suggested_citations"))
+            data,
+            evidence,
+            kb_citation_available=bool(extra_context.get("suggested_citations")),
+            grounding_report=grounding_report,
         )
         return self._persist_appeal(
             claim_id,
@@ -241,6 +295,7 @@ class AppealService:
             analysis_id=analysis.id if analysis else None,
             missing_documents=evidence.needs_verification,
             quality_score=quality_score,
+            grounding_report=grounding_report,
         )
 
     def get_appeal(self, appeal_id: int) -> Appeal | None:
@@ -499,16 +554,16 @@ class AppealService:
         if require_evidence and evidence.needs_verification:
             raise MissingEvidenceError(evidence.needs_verification)
 
-        extra_context = self._build_extra_context(claim, denial_code_entry)
+        extra_context = self._build_extra_context(claim, denial_code_entry, analysis)
         generator = SectionedAppealGenerator() if appeal.sections else AppealGenerator()
         with ai_call_context(organization_id=self.organization_id, claim_id=appeal.claim_id):
             data = await generator.generate(claim, denial, analysis, organization, extra_context)
-        data["citations"] = merge_citations(
-            data.get("citations"),
-            citations_for_denial_type(denial_code_entry.category) if denial_code_entry else [],
-        )
+        grounding_report = self._finalize_grounding(data, claim, extra_context)
         quality_score = score_appeal(
-            data, evidence, kb_citation_available=bool(extra_context.get("suggested_citations"))
+            data,
+            evidence,
+            kb_citation_available=bool(extra_context.get("suggested_citations")),
+            grounding_report=grounding_report,
         )
 
         # Snapshot the version currently live before overwriting it with the
@@ -541,6 +596,7 @@ class AppealService:
         appeal.missing_information = data.get("missing_information") or None
         appeal.missing_documents = evidence.needs_verification or None
         appeal.quality_score = quality_score
+        appeal.grounding_report = grounding_report
         appeal.current_version += 1
         appeal.generated_by = "ai"
         self.db.commit()

@@ -21,6 +21,25 @@ Validation never submits a claim or appeal. AI is not used in this slice. All
 recommendations are deterministic summaries of persisted tenant facts and require
 human review.
 
+## Governed Appeal Policy Sources
+
+The payer registry also owns immutable `payer_policy_sources` versions for Kenya
+appeal grounding. A source records its payer, policy code, source type, reviewed
+text, source reference and optional URI, effective dates, denial/procedure scope,
+SHA-256 checksum, change reason, and maker/checker approval evidence.
+
+Draft, pending, rejected, retired, expired, future-effective, wrong-payer, and
+wrong-tenant versions never enter an appeal prompt. A submitter cannot approve or
+reject the same version. Approving a newer version retires the prior approved
+version with the same policy code. Atlas does not ship payer policy content as
+verified merely because this storage and approval workflow exists.
+
+Appeals persist a `grounding_report` containing the selected source IDs, versions,
+effective dates, checksums, applicability inputs, and rejected model-citation
+count. Sectioned drafts render policy references deterministically from selected
+sources rather than trusting model-written policy prose. If no source applies,
+the draft explicitly requires payer-policy verification.
+
 ## Ownership And Security
 
 `payer_profile_versions`, `payer_contracts`, and `payer_rules` are directly
@@ -48,6 +67,10 @@ not persisted.
 | GET, POST | `/payers/{payer_id}/rules` | List or append sourced payer-rule versions |
 | GET | `/payers/{payer_id}/claims/{claim_id}/validation` | Run advisory contract and rule checks |
 | GET | `/payers/{payer_id}/intelligence` | Read tenant-only aggregate intelligence |
+| GET, POST | `/payers/{payer_id}/policy-sources` | List or create immutable policy-source versions |
+| POST | `/payers/{payer_id}/policy-sources/{source_id}/submit-for-approval` | Submit a draft/rejected version |
+| POST | `/payers/{payer_id}/policy-sources/{source_id}/approve` | Independently approve a version |
+| POST | `/payers/{payer_id}/policy-sources/{source_id}/reject` | Independently reject with a reason |
 
 `minimum_sample_size` on the intelligence endpoint defaults to 10 and accepts
 values from 5 through 1000. Below the selected threshold Atlas returns facts with
@@ -87,6 +110,8 @@ downgraded while they are empty or after their data is deliberately exported and
 accepted for deletion. The change adds no secrets, workers, schedules, external
 calls, caches, or provider dependencies.
 
-Pilot readiness still requires PostgreSQL upgrade/downgrade rehearsal, one-head
-verification, representative Kenyan design-partner data, policy-source review,
-alerting, performance measurement, and workflow acceptance testing.
+Migration `6b8f1e3d9a2c` adds governed policy sources and appeal grounding
+provenance. Its PostgreSQL upgrade/downgrade/upgrade cycle has been rehearsed
+locally with one Alembic head. Pilot readiness still requires representative
+Kenyan design-partner policies, legal/clinical review, alerting, performance
+measurement, and workflow acceptance testing.

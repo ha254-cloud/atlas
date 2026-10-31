@@ -110,8 +110,8 @@ async def generate_sectioned_appeal(
 ):
     """
     Generate a sectioned appeal draft.
-    Each section (Introduction, Medical Necessity, etc.) is generated independently
-    so specialists can edit specific sections without rewriting the whole letter.
+    The model returns every grounded section in one structured response so
+    specialists can edit specific sections without seven independent AI calls.
     """
     try:
         appeal = await _svc(db, organization_id).generate_sectioned_appeal(
