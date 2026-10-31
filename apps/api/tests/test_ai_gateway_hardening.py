@@ -41,7 +41,9 @@ class FakeChatCompletions:
             "Resp",
             (),
             {
-                "choices": [type("Choice", (), {"message": type("Msg", (), {"content": self._content})()})()],
+                "choices": [
+                    type("Choice", (), {"message": type("Msg", (), {"content": self._content})()})()
+                ],
                 "usage": None,
             },
         )()
@@ -67,7 +69,9 @@ class StubProvider:
             raise self._raise_exc
         return self._text_result
 
-    async def generate_json(self, prompt, system=None, *, task=None, model=None, prompt_version=None):
+    async def generate_json(
+        self, prompt, system=None, *, task=None, model=None, prompt_version=None
+    ):
         self.calls += 1
         if self._raise_exc is not None:
             raise self._raise_exc
@@ -118,14 +122,20 @@ class TestCacheKey:
     def test_build_cache_key_includes_all_components(self):
         updated = datetime(2026, 1, 1, tzinfo=UTC)
         key = build_cache_key(
-            task="claim_analysis", claim_id=42, prompt_version="1.0", model="gpt-4.1-mini",
+            task="claim_analysis",
+            claim_id=42,
+            prompt_version="1.0",
+            model="gpt-4.1-mini",
             claim_updated_at=updated,
         )
         assert key == f"ai:cache:claim_analysis:42:1.0:gpt-4.1-mini:{updated.isoformat()}"
 
     def test_build_cache_key_handles_missing_timestamp(self):
         key = build_cache_key(
-            task="claim_analysis", claim_id=1, prompt_version="1.0", model="gpt-4.1-mini",
+            task="claim_analysis",
+            claim_id=1,
+            prompt_version="1.0",
+            model="gpt-4.1-mini",
             claim_updated_at=None,
         )
         assert key.endswith(":unknown")
@@ -177,12 +187,34 @@ class TestTenantAttribution:
 
 class TestGatewayCaching:
     @pytest.mark.asyncio
+    async def test_generate_json_enforces_budget_before_provider_call(self, monkeypatch):
+        gateway = AIGateway()
+        stub = StubProvider(json_result={"denial_cause": "eligibility"})
+        gateway._providers["openai"] = stub
+
+        def budget_exceeded(**_kwargs):
+            raise AIProviderError(
+                "AI monthly budget has been reached",
+                task="claim_analysis",
+                provider="openai",
+            )
+
+        monkeypatch.setattr("app.ai.gateway.enforce_monthly_budget", budget_exceeded)
+
+        with pytest.raises(AIProviderError, match="budget"):
+            await gateway.generate_json(task="claim_analysis", prompt="hello")
+
+        assert stub.calls == 0
+
+    @pytest.mark.asyncio
     async def test_generate_json_returns_cached_result_without_calling_provider(self, monkeypatch):
         gateway = AIGateway()
         stub = StubProvider(json_result={"denial_cause": "eligibility"})
         gateway._providers["openai"] = stub
 
-        monkeypatch.setattr("app.ai.gateway.get_cached_json", lambda key: {"denial_cause": "cached"})
+        monkeypatch.setattr(
+            "app.ai.gateway.get_cached_json", lambda key: {"denial_cause": "cached"}
+        )
         monkeypatch.setattr(
             "app.ai.gateway.set_cached_json",
             lambda *a, **kw: pytest.fail("should not cache on a hit"),

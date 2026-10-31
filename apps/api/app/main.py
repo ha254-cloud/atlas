@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.database import engine
+from app.documents.storage import MalwareScannerUnavailable, malware_scanner_ready
 from app.events.handlers import register_all as register_event_handlers
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.observability.tracing import TracingMiddleware
@@ -70,6 +71,14 @@ def readiness():
     except RedisError:
         logger.exception("Redis readiness check failed")
         checks["redis"] = "error"
+
+    if settings.DOCUMENT_MALWARE_SCAN_ENABLED:
+        checks["malware_scanner"] = "ok"
+        try:
+            malware_scanner_ready()
+        except MalwareScannerUnavailable:
+            logger.exception("Malware scanner readiness check failed")
+            checks["malware_scanner"] = "error"
 
     if "error" in checks.values():
         return JSONResponse(

@@ -18,7 +18,13 @@ few call sites that know the organization/claim wrap themselves with
 import contextvars
 import logging
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from decimal import Decimal
+
+from sqlalchemy import func
+
+from app.ai.exceptions import AIProviderError
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +61,51 @@ _DEFAULT_RATES = {"input": Decimal("0.002"), "output": Decimal("0.008")}
 
 def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> Decimal:
     rates = _PRICING_PER_1K_TOKENS.get(model, _DEFAULT_RATES)
-    cost = (
-        (Decimal(input_tokens) / Decimal(1000)) * rates["input"]
-        + (Decimal(output_tokens) / Decimal(1000)) * rates["output"]
-    )
+    cost = (Decimal(input_tokens) / Decimal(1000)) * rates["input"] + (
+        Decimal(output_tokens) / Decimal(1000)
+    ) * rates["output"]
     return cost.quantize(Decimal("0.000001"))
+
+
+def enforce_monthly_budget(*, task: str, provider: str) -> None:
+    budget = settings.AI_MONTHLY_BUDGET_USD
+    if budget <= 0:
+        return
+
+    from app.db.database import SessionLocal
+    from app.models.ai_call_log import AICallLog
+
+    month_start = datetime.now(UTC).replace(
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    db = SessionLocal()
+    try:
+        spent = (
+            db.query(func.coalesce(func.sum(AICallLog.cost_usd), 0))
+            .filter(AICallLog.created_at >= month_start)
+            .scalar()
+        )
+    except Exception as exc:
+        logger.exception("Failed to verify the monthly AI budget")
+        raise AIProviderError(
+            "AI is temporarily unavailable because its spending limit could not be verified",
+            task=task,
+            provider=provider,
+        ) from exc
+    finally:
+        db.close()
+
+    spent_usd = Decimal(str(spent or 0))
+    if spent_usd >= budget:
+        raise AIProviderError(
+            f"AI monthly budget of ${budget:.2f} has been reached",
+            task=task,
+            provider=provider,
+        )
 
 
 def log_ai_call(

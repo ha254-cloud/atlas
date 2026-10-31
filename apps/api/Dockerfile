@@ -5,7 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 RUN apt-get update \
-	&& apt-get install --no-install-recommends -y tesseract-ocr \
+	&& apt-get install --no-install-recommends -y clamav-daemon clamav-freshclam tesseract-ocr \
+	&& sed -i 's/^LocalSocket /#LocalSocket /' /etc/clamav/clamd.conf \
+	&& printf '\nTCPSocket 3310\nTCPAddr 127.0.0.1\n' >> /etc/clamav/clamd.conf \
 	&& rm -rf /var/lib/apt/lists/*
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

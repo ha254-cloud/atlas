@@ -15,7 +15,7 @@ per environment without code changes.
 import logging
 
 from app.ai.cache import get_cached_json, set_cached_json
-from app.ai.cost_tracking import log_ai_call
+from app.ai.cost_tracking import enforce_monthly_budget, log_ai_call
 from app.ai.exceptions import AIProviderError
 from app.ai.providers.anthropic import AnthropicProvider
 from app.ai.providers.base import AIProvider
@@ -149,6 +149,8 @@ class AIGateway:
                 )
                 return cached["text"]
 
+        provider_name = self.provider_name_for(task)
+        enforce_monthly_budget(task=task, provider=provider_name)
         provider = self.provider_for(task)
         try:
             result = await provider.generate(
@@ -163,7 +165,7 @@ class AIGateway:
         except Exception as exc:
             logger.exception("AI provider call failed for task=%s", task)
             raise AIProviderError(
-                f"AI provider call failed: {exc}", task=task, provider=self.provider_name_for(task)
+                f"AI provider call failed: {exc}", task=task, provider=provider_name
             ) from exc
 
         if cache_key is not None:
@@ -209,6 +211,8 @@ class AIGateway:
                 )
                 return cached
 
+        provider_name = self.provider_name_for(task)
+        enforce_monthly_budget(task=task, provider=provider_name)
         provider = self.provider_for(task)
         try:
             result = await provider.generate_json(
@@ -223,7 +227,7 @@ class AIGateway:
         except Exception as exc:
             logger.exception("AI provider call failed for task=%s", task)
             raise AIProviderError(
-                f"AI provider call failed: {exc}", task=task, provider=self.provider_name_for(task)
+                f"AI provider call failed: {exc}", task=task, provider=provider_name
             ) from exc
 
         if cache_key is not None and isinstance(result, dict) and "error" not in result:

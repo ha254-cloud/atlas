@@ -30,6 +30,18 @@ def test_local_storage_uses_tenant_scoped_locator(monkeypatch, tmp_path):
     assert storage.read_file(locator) == b"clinical evidence"
 
 
+def test_clean_scanned_upload_is_stored(monkeypatch, tmp_path):
+    configure_local(monkeypatch, tmp_path, scan=True)
+    scanned = []
+    monkeypatch.setattr(storage, "_scan_staged_file", lambda path: scanned.append(path))
+
+    locator, size, _checksum = storage.save_upload(upload(), organization_id=42)
+
+    assert len(scanned) == 1
+    assert size == len(b"clinical evidence")
+    assert storage.read_file(locator) == b"clinical evidence"
+
+
 def test_detected_malware_is_quarantined_and_not_available(monkeypatch, tmp_path):
     configure_local(monkeypatch, tmp_path, scan=True)
 

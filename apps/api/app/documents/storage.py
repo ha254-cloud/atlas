@@ -240,3 +240,17 @@ def _scan_staged_file(path: Path) -> None:
         raise MalwareDetected(signature)
     if not response.endswith(" OK"):
         raise MalwareScannerUnavailable(f"Unexpected malware scanner response: {response}")
+
+
+def malware_scanner_ready() -> None:
+    try:
+        with socket.create_connection(
+            (settings.DOCUMENT_MALWARE_SCAN_HOST, settings.DOCUMENT_MALWARE_SCAN_PORT),
+            timeout=settings.DOCUMENT_MALWARE_SCAN_TIMEOUT_SECONDS,
+        ) as connection:
+            connection.sendall(b"zPING\0")
+            response = connection.recv(4096).decode(errors="replace").strip("\0\n")
+    except OSError as exc:
+        raise MalwareScannerUnavailable(f"Malware scanner unavailable: {exc}") from exc
+    if response != "PONG":
+        raise MalwareScannerUnavailable(f"Unexpected malware scanner response: {response}")

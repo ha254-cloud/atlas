@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     AI_MODEL_FAST: str = "gpt-4.1-mini"
     OPENAI_API_KEY: str = ""
     COPILOT_ENABLED: bool = True
+    AI_MONTHLY_BUDGET_USD: Decimal = Decimal("0")
     AI_APPEAL_POLICY_SOURCE_MAX_CHARS: int = 2500
     AI_APPEAL_POLICY_CONTEXT_MAX_CHARS: int = 8000
 

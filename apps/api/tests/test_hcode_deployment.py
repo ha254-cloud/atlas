@@ -66,3 +66,22 @@ def test_readiness_fails_closed_without_dependencies(monkeypatch):
         "status": "not_ready",
         "checks": {"database": "error", "redis": "error"},
     }
+
+
+def test_readiness_includes_enabled_malware_scanner(monkeypatch):
+    import app.main as main_module
+
+    connection = MagicMock()
+    main_module.engine = MagicMock()
+    main_module.engine.connect.return_value.__enter__.return_value = connection
+    redis_client = MagicMock()
+    monkeypatch.setattr(main_module.Redis, "from_url", lambda _url: redis_client)
+    monkeypatch.setattr(main_module.settings, "DOCUMENT_MALWARE_SCAN_ENABLED", True)
+    scanner_ready = MagicMock()
+    monkeypatch.setattr(main_module, "malware_scanner_ready", scanner_ready)
+
+    response = TestClient(app).get("/health/ready")
+
+    assert response.status_code == 200
+    assert response.json()["checks"]["malware_scanner"] == "ok"
+    scanner_ready.assert_called_once()
