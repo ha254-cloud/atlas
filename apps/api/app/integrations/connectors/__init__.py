@@ -6,6 +6,7 @@ from app.integrations.connectors.change import ChangeHealthcareConnector
 from app.integrations.connectors.ecw import EClinicalWorksConnector
 from app.integrations.connectors.epic import EpicConnector
 from app.integrations.connectors.sftp import SFTPConnector
+from app.integrations.connectors.sha import SHAConnector
 from app.integrations.connectors.waystar import WaystarConnector
 from app.integrations.registry import registry
 
@@ -18,6 +19,7 @@ registry.register("waystar", WaystarConnector)
 registry.register("availity", AvailityConnector)
 registry.register("change", ChangeHealthcareConnector)
 registry.register("sftp", SFTPConnector)
+registry.register("sha", SHAConnector)
 
 __all__ = [
     "BaseConnector",
@@ -29,5 +31,6 @@ __all__ = [
     "AvailityConnector",
     "ChangeHealthcareConnector",
     "SFTPConnector",
+    "SHAConnector",
     "registry",
 ]

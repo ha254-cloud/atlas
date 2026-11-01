@@ -122,6 +122,13 @@ Status: **In Progress**; first slice closed, existing foundations remain maintai
 - [ ] Validate payer profiles, contracts, tariffs, and sourced rules against signed
   Kenyan design-partner records.
 - [x] Complete payer approval and monitoring workflows plus Payers page.
+- [x] Implement the real OAuth 2.0/FHIR transport for DHA/SHA claim submission
+  and ClaimResponse retrieval, with tenant-scoped idempotency, immutable exchange
+  events, audit, and no sandbox fallback.
+- [x] Validate a representative synthetic claim Bundle with the official HL7
+  validator and the DHA draft package `ke.fhir.eclaims#0.1.0` with zero errors.
+- [ ] Complete DHA sandbox/HIE UAT, certification, production credentials, final
+  package validation, and named-hospital acceptance for the SHA transport.
 - [ ] Certify one real payer submission channel with explicit human initiation,
   acknowledgements, retries, errors, support ownership, and contract tests.
 - [ ] Add stronger settlement evidence, bulk payment allocation, reversals/refunds,

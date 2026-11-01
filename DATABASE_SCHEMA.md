@@ -1,8 +1,8 @@
 # Atlas Database Schema
 
 Last verified: 2026-10-29
-Alembic head: `d4f7a2c6e9b3`
-Registered SQLAlchemy tables: 76
+Alembic head: `e8c3f1a9d6b2`
+Registered SQLAlchemy tables: 78
 
 This file is the admission registry for physical database tables. SQLAlchemy models
 and Alembic migrations remain the executable definitions of columns, constraints,
@@ -50,7 +50,7 @@ requires an approved migration with a demonstrated semantic need.
 | AI and Copilot | 6 | Tenant-attributed AI usage/execution and Copilot conversations/messages/confirmations. |
 | Tasks and notifications | 4 | Tasks, activities, skills, and durable task notifications. |
 | Workflows | 5 | Definitions, steps, executions, step executions, and durable event inbox. |
-| Integrations and webhooks | 8 | Connectors, credential/mapping/sync history, subscriptions, and deliveries. |
+| Integrations and eClaims | 10 | Connectors, credential/mapping/sync history, tenant-scoped SHA exchange evidence, subscriptions, and deliveries. |
 | Domain events | 1 | Durable transactional outbox for tenant domain events. |
 | Audit | 1 | Immutable tenant audit evidence. |
 
@@ -123,6 +123,8 @@ recovery_fee_schedules
 recovery_interventions
 recovery_lifecycle_events
 retention_policies
+sha_eclaim_exchange_events
+sha_eclaim_exchanges
 task_activities
 task_notifications
 tasks
@@ -149,7 +151,7 @@ workflow_steps
 
 ### Tables Carrying Organization ID
 
-These 63 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
+These 65 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_analyses`,
 `ai_call_logs`, `api_keys`, `appeal_submission_events`, `appeal_submissions`,
 `appeal_versions`, `appeals`, `audit_logs`, `branch_memberships`, `branches`,
 `claim_analyses`, `claim_decisions`,
@@ -167,7 +169,8 @@ These 63 tables carry non-null `organization_id`: `agent_execution_logs`, `ai_an
 `recovery_attribution_disputes`, `recovery_attribution_versions`,
 `recovery_cases`, `recovery_fee_schedules`, `recovery_interventions`,
 `recovery_lifecycle_events`,
-`retention_policies`, `task_activities`, `task_notifications`, `tasks`,
+`retention_policies`, `sha_eclaim_exchange_events`, `sha_eclaim_exchanges`,
+`task_activities`, `task_notifications`, `tasks`,
 `user_sessions`, `user_task_skills`, `users`, `webhook_subscriptions`,
 `workflow_definitions`, `workflow_events`, and `workflow_executions`.
 
@@ -194,6 +197,13 @@ decision. `invoice_reconciliation_runs` is directly tenant-owned and immutable,
 preserving each independent exact-money recomputation. Credit notes now have exactly
 one immutable source: either a payment-allocation adjustment or an attribution
 dispute resolution.
+
+`sha_eclaim_exchanges` is the tenant-scoped current-state projection for a
+human-initiated SHA claim transmission. `sha_eclaim_exchange_events` is its
+append-only evidence history and repeats `organization_id` with a composite foreign
+key to prevent an event from crossing tenant boundaries. Full FHIR payloads are not
+persisted in either table; hashes, bounded response summaries, correlation IDs, actor,
+reason, and transport outcomes provide the durable audit evidence.
 
 ### Parent-Scoped Without Organization ID
 

@@ -1,6 +1,6 @@
 # Atlas Release Plan
 
-Last reviewed: 2026-10-31
+Last reviewed: 2026-11-01
 
 ## Status Vocabulary
 
@@ -21,7 +21,7 @@ CSV claim import -> AI analysis -> AI appeal -> human approval
 -> recovery attribution -> verification -> monthly invoice -> dashboard
 ```
 
-Current evidence includes a 591/591 complete backend regression pass, production web build/type-check, a verified 29-route static web export for Apache-compatible `public_html` hosting, PostgreSQL migrations through `d4f7a2c6e9b3`, and responsive dashboard checks. The HCode synthetic staging deployment is live at `api.atlashealth.ke` with managed PostgreSQL/Redis readiness, HTTPS, frontend-origin CORS, login, restart-safe demo seeding, and API/Celery worker/Celery beat supervision verified. Daily PostgreSQL and Redis schedules retain backups for seven days, and manual artifacts reached `Ready`; an isolated restore rehearsal is still open. In-container ClamAV failed its deployment check when `freshclam` was killed by signal 9, so malware scanning remains disabled until a private adequately sized scanner is available. AI budget enforcement is implemented, but hosted AI remains disabled until the displayed provider key is rotated and replaced. Durable S3 storage, centralized monitoring/alerting, SMTP, production-like E2E, and governance approval remain open. Mock submission proves orchestration but is not evidence of a real payer integration.
+Current evidence includes a 591/591 complete backend regression pass, production web build/type-check, a verified 29-route static web export for Apache-compatible `public_html` hosting, PostgreSQL migrations through `d4f7a2c6e9b3`, and responsive dashboard checks. A real DHA/SHA transport now implements OAuth 2.0 client credentials, FHIR claim Bundle submission, and ClaimResponse retrieval with tenant-scoped idempotency and immutable exchange evidence under additive migration `e8c3f1a9d6b2`; official validator, DHA sandbox, HIE UAT, certification, production credentials, PaymentNotice, eligibility, preauthorization, and hospital acceptance remain open, so Atlas does not claim a certified or live SHA connection. The HCode synthetic staging deployment is live at `api.atlashealth.ke` with managed PostgreSQL/Redis readiness, HTTPS, frontend-origin CORS, login, restart-safe demo seeding, and API/Celery worker/Celery beat supervision verified. Daily PostgreSQL and Redis schedules retain backups for seven days, and manual artifacts reached `Ready`; an isolated restore rehearsal is still open. In-container ClamAV failed its deployment check when `freshclam` was killed by signal 9, so malware scanning remains disabled until a private adequately sized scanner is available. AI budget enforcement is implemented, but hosted AI remains disabled until the displayed provider key is rotated and replaced. Durable S3 storage, centralized monitoring/alerting, SMTP, production-like E2E, and governance approval remain open. Mock appeal submission proves orchestration but is not evidence of a certified payer integration.
 
 Migration `d4f7a2c6e9b3` adds a composite `(organization_id, created_at)` index and `pg_trgm` GIN indexes (`claims.claim_number`, `patients.first_name`/`last_name`, `payers.name`) backing the claims list/search query, and the claims list/detail repository query was changed from a blanket `joinedload` of every relation to `joinedload` for many-to-one/one-to-one relations plus `selectinload` for one-to-many collections, removing an unused `documents`/`organization` eager-load and the row-multiplication caused by joining multiple one-to-many collections in a single query. Deployment impact: the migration is additive (new indexes only, no column/table changes) and backward compatible; `CREATE INDEX` on `claims`/`patients`/`payers` should be scheduled during low-traffic windows on large datasets since Postgres index builds take a read lock briefly even without `CONCURRENTLY`. The complete backend suite now passes 591/591, including claim repository/service, architecture-contract, HCode deployment, governed recovery attribution, and submission-to-invoice regressions.
 
@@ -48,7 +48,10 @@ One named hospital can run a deliberately constrained recovery workflow with tra
 - [ ] Add audit before/after/reason fields consistently for material mutations.
 - [ ] Validate required production secrets at startup, including integration encryption and JWT signing keys.
 - [ ] Replace hardcoded recovery fee defaults and schedules with versioned organization configuration.
-- [ ] Implement one real submission connector selected for the pilot market and pass contract certification/sandbox tests.
+- [x] Validate a representative synthetic SHA claim Bundle against the official
+  HL7 validator and DHA draft package `ke.fhir.eclaims#0.1.0` with zero errors.
+- [ ] Complete DHA sandbox/HIE UAT, certification, final-package validation, and
+  named-hospital acceptance for the implemented SHA eClaims transport.
 - [ ] Add backup/restore rehearsal, alerting, support runbook, and incident ownership.
 - [ ] Run a production-like E2E using non-synthetic connector acknowledgements and payment messages.
 - [ ] Complete privacy/security review and hospital data-processing agreements.

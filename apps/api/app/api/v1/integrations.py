@@ -128,8 +128,13 @@ async def check_integration_health(
             organization_id,
             correlation_id=getattr(request.state, "request_id", None),
         )
+        if result.get("connected"):
+            row.status = IntegrationStatus.ACTIVE
+            row.last_error = None
+            db.commit()
     except (IntegrationError, ConnectorNotFoundError) as exc:
         result = {"connected": False, "latency_ms": None}
+        row.status = IntegrationStatus.ERROR
         row.last_error = str(exc)
         db.commit()
 

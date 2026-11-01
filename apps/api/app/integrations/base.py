@@ -66,6 +66,7 @@ class BaseConnector(ABC):
 
     # Subclasses must declare their provider name.
     provider: str
+    supports_sync: bool = True
 
     @abstractmethod
     async def authenticate(self) -> None:
@@ -106,3 +107,31 @@ class BaseConnector(ABC):
         Must return at minimum: {"connected": bool, "latency_ms": int}.
         """
         ...
+
+
+@dataclass(frozen=True)
+class EClaimsTransportResponse:
+    http_status: int
+    resource: dict[str, Any]
+    response_sha256: str
+    external_reference: str | None = None
+
+
+class EClaimsConnector(ABC):
+    @abstractmethod
+    async def submit_claim_bundle(
+        self,
+        bundle: dict[str, Any],
+        *,
+        correlation_id: str,
+    ) -> EClaimsTransportResponse:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_claim_response(
+        self,
+        external_reference: str,
+        *,
+        correlation_id: str,
+    ) -> EClaimsTransportResponse:
+        raise NotImplementedError

@@ -1,12 +1,11 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.integrations.contracts import (
+    APIKeyCredentials,
     ConnectorCredentials,
     CredentialContract,
-    APIKeyCredentials,
     OAuth2Credentials,
     SFTPCredentials,
     validate_provider_credentials,
@@ -16,12 +15,12 @@ from app.models.integration import IntegrationStatus
 
 class IntegrationCreate(BaseModel):
     provider: str = Field(..., description="Connector name, e.g. 'epic', 'athena', 'cerner'")
-    settings: Optional[dict] = None
+    settings: dict | None = None
     credentials: ConnectorCredentials | None = None
     # Optional — many connectors are configured first and authorized later
     # via a separate OAuth flow. Never echoed back in responses.
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
+    access_token: str | None = None
+    refresh_token: str | None = None
 
     @model_validator(mode="after")
     def validate_provider_settings(self):
@@ -29,6 +28,34 @@ class IntegrationCreate(BaseModel):
             validate_provider_credentials(self.provider, self.credentials)
         if self.credentials and (self.access_token or self.refresh_token):
             raise ValueError("Use credentials or legacy token fields, not both")
+        if self.provider.lower() == "sha":
+            if self.access_token or self.refresh_token:
+                raise ValueError(
+                    "SHA requires oauth2_client_credentials; legacy token fields are not supported"
+                )
+            settings = self.settings or {}
+            plaintext_secrets = {"client_secret", "access_token", "refresh_token"}.intersection(
+                settings
+            )
+            if plaintext_secrets:
+                raise ValueError("SHA secrets must use the encrypted credential fields")
+            missing = [
+                field
+                for field in (
+                    "base_url",
+                    "token_url",
+                    "client_id",
+                    "provider_number",
+                    "facility_name",
+                )
+                if not settings.get(field)
+            ]
+            if missing:
+                raise ValueError(f"Missing SHA settings: {', '.join(missing)}")
+            for field in ("base_url", "token_url"):
+                if not str(settings[field]).lower().startswith("https://"):
+                    raise ValueError(f"SHA {field} must use HTTPS")
+            return self
         if self.provider.lower() != "sftp":
             return self
 
@@ -79,7 +106,7 @@ class IntegrationCredentialVersionRead(BaseModel):
     version: int
     credential_kind: str
     fingerprints: dict[str, str]
-    expires_at: Optional[datetime]
+    expires_at: datetime | None
     changed_by: int
     reason: str
     correlation_id: str
@@ -91,16 +118,16 @@ class IntegrationRead(BaseModel):
     id: int
     provider: str
     status: IntegrationStatus
-    last_sync_at: Optional[datetime]
-    last_error: Optional[str]
+    last_sync_at: datetime | None
+    last_error: str | None
     claims_imported_count: int
-    settings: Optional[dict]
+    settings: dict | None
     created_at: datetime
 
 class IntegrationHealth(BaseModel):
     connected: bool
-    latency_ms: Optional[int] = None
+    latency_ms: int | None = None
     provider: str
     status: IntegrationStatus
-    last_sync_at: Optional[datetime]
-    last_error: Optional[str]
+    last_sync_at: datetime | None
+    last_error: str | None

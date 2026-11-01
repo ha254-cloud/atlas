@@ -61,6 +61,14 @@ class EventType(str, Enum):
 
     CLAIM_FAILED = "claim.failed"
 
+    CLAIM_SUBMITTED = "claim.submitted"
+
+    CLAIM_ADJUDICATION_RECEIVED = "claim.adjudication_received"
+
+    CLAIM_SUBMISSION_FAILED = "claim.submission_failed"
+
+    CLAIM_ADJUDICATION_CHECK_FAILED = "claim.adjudication_check_failed"
+
     DOCUMENT_UPLOADED = "document.uploaded"
 
     DOCUMENT_PROCESSED = "document.processed"

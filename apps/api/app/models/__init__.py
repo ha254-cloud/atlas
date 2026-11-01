@@ -62,6 +62,7 @@ from .claim_decision import ClaimDecision
 from .payer_statistics import PayerStatistics
 from .webhook import WebhookSubscription, WebhookDeliveryLog
 from .copilot import CopilotConversation, CopilotMessage, CopilotConfirmation
+from app.eclaims.models import SHAExchange, SHAExchangeEvent
 
 __all__ = [
     "Organization",
@@ -132,4 +133,6 @@ __all__ = [
     "CopilotConversation",
     "CopilotMessage",
     "CopilotConfirmation",
+    "SHAExchange",
+    "SHAExchangeEvent",
 ]

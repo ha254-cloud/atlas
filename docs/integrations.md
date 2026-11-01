@@ -15,6 +15,7 @@ Hospital HIS / Payer
   Athena        Availity
   Cerner        Change HC
   eCW
+                SHA eClaims
            │
            ▼
     CanonicalClaim / CanonicalPatient / CanonicalPayment
@@ -35,10 +36,19 @@ Manual, email, and portal workflows are first-class configurations. They do not 
 automated transport. Payment reconciliation accepts CSV, Excel, portal exports, emailed
 reports, API/SFTP messages, and manual entry through one canonical payment engine.
 
-SHA, Jubilee, AAR, Britam, and CIC are discovery and connector-roadmap targets. No live
-or certified integration with those payers is currently claimed. A payer connector is
-only promoted from roadmap status after protocol discovery, contractual access,
-sandbox/contract tests, security review, operational ownership, and pilot evidence.
+The DHA/SHA eClaims transport is implemented for OAuth 2.0 client credentials,
+FHIR claim Bundle submission, and ClaimResponse retrieval against configured
+HTTPS endpoints. A representative synthetic Bundle passes the official HL7
+validator against the DHA draft package `ke.fhir.eclaims#0.1.0` with zero errors
+and eight narrative best-practice warnings. It is not DHA-certified,
+HIE-UAT-tested, or production-connected.
+Jubilee, AAR, Britam, and CIC remain discovery and connector-roadmap targets. A
+payer connector is only promoted to pilot or production status after protocol
+discovery, contractual access, sandbox/contract tests, security review,
+operational ownership, certification where required, and pilot evidence.
+
+See `sha-eclaims.md` and ADR 0007 for the exact implemented scope and deployment
+gates.
 
 ## EHR Connectors (FHIR Sprint)
 
@@ -56,6 +66,16 @@ sandbox/contract tests, security review, operational ownership, and pilot eviden
 | Waystar | API Key | X12 EDI (837/835/277) | Stub |
 | Availity | OAuth2 | X12 + REST | Stub |
 | Change Healthcare | OAuth2 | X12 + REST | Stub |
+
+## Kenya DHA/SHA eClaims
+
+| Connector | Auth | Protocol | Status |
+|-----------|------|----------|--------|
+| SHA | OAuth 2.0 client credentials | Kenya eClaims FHIR R4, IG 0.1.0 | Implemented and locally validated; certification and UAT open |
+
+SHA is an outbound exchange and intentionally does not implement generic pull
+sync. Atlas builds governed FHIR resources from the tenant-owned claim and
+explicit Kenya coding inputs; callers cannot send arbitrary raw bundles.
 
 ## Scheduled SFTP Claim Feed
 

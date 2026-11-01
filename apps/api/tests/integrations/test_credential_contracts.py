@@ -9,13 +9,13 @@ from app.integrations.contracts import (
     PROVIDER_CREDENTIAL_KINDS,
     APIKeyCredentials,
     ConnectorCredentials,
+    OAuth2ClientCredentials,
     OAuth2Credentials,
     SFTPCredentials,
 )
 from app.integrations.exceptions import IntegrationError
 from app.integrations.manager import IntegrationManager
 from app.integrations.registry import registry
-
 
 credential_adapter = TypeAdapter(ConnectorCredentials)
 
@@ -24,6 +24,10 @@ credential_adapter = TypeAdapter(ConnectorCredentials)
     ("payload", "expected_type"),
     [
         ({"kind": "oauth2", "access_token": "token"}, OAuth2Credentials),
+        (
+            {"kind": "oauth2_client_credentials", "client_secret": "secret"},
+            OAuth2ClientCredentials,
+        ),
         ({"kind": "api_key", "api_key": "key"}, APIKeyCredentials),
         ({"kind": "sftp", "password": "password"}, SFTPCredentials),
     ],
@@ -46,6 +50,7 @@ def test_oauth2_contract_preserves_timezone_aware_expiry():
     "payload",
     [
         {"kind": "oauth2"},
+        {"kind": "oauth2_client_credentials", "client_secret": ""},
         {"kind": "api_key", "api_key": ""},
         {"kind": "sftp"},
         {"kind": "sftp", "password": "password", "private_key": "private-key"},
@@ -79,6 +84,30 @@ def test_waystar_primary_secret_maps_to_api_key(monkeypatch):
         )
 
         assert IntegrationManager(None)._build_config(row)["api_key"] == "api-key"
+    finally:
+        settings.INTEGRATION_ENCRYPTION_KEY = original_key
+
+
+def test_sha_primary_secret_maps_to_oauth_client_secret():
+    from cryptography.fernet import Fernet
+
+    from app.core.config import settings
+    from app.integrations.encryption import encrypt_token
+
+    original_key = settings.INTEGRATION_ENCRYPTION_KEY
+    settings.INTEGRATION_ENCRYPTION_KEY = Fernet.generate_key().decode()
+    try:
+        row = SimpleNamespace(
+            organization_id=1,
+            provider="sha",
+            encrypted_access_token=encrypt_token("client-secret"),
+            encrypted_refresh_token=None,
+            settings={"client_id": "atlas-client"},
+        )
+
+        config = IntegrationManager(None)._build_config(row)
+        assert config["client_secret"] == "client-secret"
+        assert config["client_id"] == "atlas-client"
     finally:
         settings.INTEGRATION_ENCRYPTION_KEY = original_key
 

@@ -22,6 +22,11 @@ class OAuth2Credentials(CredentialContract):
         return self
 
 
+class OAuth2ClientCredentials(CredentialContract):
+    kind: Literal["oauth2_client_credentials"] = "oauth2_client_credentials"
+    client_secret: str = Field(min_length=1)
+
+
 class APIKeyCredentials(CredentialContract):
     kind: Literal["api_key"] = "api_key"
     api_key: str = Field(min_length=1)
@@ -40,7 +45,7 @@ class SFTPCredentials(CredentialContract):
 
 
 ConnectorCredentials = Annotated[
-    OAuth2Credentials | APIKeyCredentials | SFTPCredentials,
+    OAuth2Credentials | OAuth2ClientCredentials | APIKeyCredentials | SFTPCredentials,
     Field(discriminator="kind"),
 ]
 
@@ -54,6 +59,7 @@ PROVIDER_CREDENTIAL_KINDS: dict[str, str] = {
     "change": "oauth2",
     "waystar": "api_key",
     "sftp": "sftp",
+    "sha": "oauth2_client_credentials",
 }
 
 
@@ -73,6 +79,8 @@ def credential_storage_values(
 ) -> tuple[str | None, str | None, datetime | None]:
     if isinstance(credentials, OAuth2Credentials):
         return credentials.access_token, credentials.refresh_token, credentials.expires_at
+    if isinstance(credentials, OAuth2ClientCredentials):
+        return credentials.client_secret, None, None
     if isinstance(credentials, APIKeyCredentials):
         return credentials.api_key, None, None
     if isinstance(credentials, SFTPCredentials):

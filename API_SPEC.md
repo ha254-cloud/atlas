@@ -2,7 +2,7 @@
 
 Last verified: 2026-10-29
 API version prefix: `/api/v1`  
-Registered operations: 251
+Registered operations: 255
 
 This file is the admission registry for Atlas HTTP operations. The generated FastAPI
 OpenAPI document at `/openapi.json` remains the executable source for request/response
@@ -183,6 +183,10 @@ GET /api/v1/patients
 POST /api/v1/patients
 GET /api/v1/patients/{patient_id}
 PUT /api/v1/patients/{patient_id}
+POST /api/v1/eclaims/claims/{claim_id}/submit
+GET /api/v1/eclaims/claims/{claim_id}/exchanges
+GET /api/v1/eclaims/exchanges/{exchange_id}
+POST /api/v1/eclaims/exchanges/{exchange_id}/refresh
 GET /api/v1/payer-connectivity/analytics/executive-summary
 POST /api/v1/payer-connectivity/appeals/{appeal_id}/submit
 GET /api/v1/payer-connectivity/connectors

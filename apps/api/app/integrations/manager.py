@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.integrations.base import BaseConnector
 from app.integrations.contracts import PROVIDER_CREDENTIAL_KINDS
 from app.integrations.encryption import decrypt_token
 from app.integrations.exceptions import AuthenticationError, IntegrationError, SyncError
@@ -13,7 +14,6 @@ from app.integrations.registry import registry
 from app.models.integration import Integration, IntegrationStatus
 from app.observability.logging import get_logger
 from app.observability.metrics import metrics
-
 
 logger = get_logger("atlas.integrations")
 
@@ -61,6 +61,10 @@ class IntegrationManager:
         # Resolve and instantiate the connector with decrypted credentials
         config = self._build_config(row)
         connector = registry.get(row.provider, **config)
+        if not connector.supports_sync:
+            raise IntegrationError(
+                f"Integration provider '{row.provider}' does not support pull synchronization"
+            )
 
         # Mark as syncing
         row.status = IntegrationStatus.SYNCING
@@ -134,8 +138,11 @@ class IntegrationManager:
 
         if row.encrypted_access_token:
             primary = decrypt_token(row.encrypted_access_token)
-            if PROVIDER_CREDENTIAL_KINDS.get(row.provider) == "api_key":
+            credential_kind = PROVIDER_CREDENTIAL_KINDS.get(row.provider)
+            if credential_kind == "api_key":
                 config["api_key"] = primary
+            elif credential_kind == "oauth2_client_credentials":
+                config["client_secret"] = primary
             else:
                 config["access_token"] = primary
 
@@ -146,6 +153,15 @@ class IntegrationManager:
             config.update(row.settings)
 
         return config
+
+    def connector(
+        self,
+        integration_id: int,
+        organization_id: int,
+    ) -> BaseConnector:
+        row = self.get_integration(integration_id, organization_id)
+        self._ensure_credentials_not_expired(row)
+        return registry.get(row.provider, **self._build_config(row))
 
     @staticmethod
     def _ensure_credentials_not_expired(row: Integration) -> None:

@@ -30,6 +30,7 @@ class Permission(StrEnum):
     VIEW_CLINICAL_DOCUMENTS = "view_clinical_documents"
     EDIT_CLAIMS = "edit_claims"
     UPLOAD_CLAIMS = "upload_claims"
+    SUBMIT_CLAIMS = "submit_claims"
     GENERATE_APPEALS = "generate_appeals"
     SUBMIT_APPEALS = "submit_appeals"
     VIEW_ANALYTICS = "view_analytics"
@@ -65,6 +66,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.EXPORT_CLAIMS,
         Permission.EDIT_CLAIMS,
         Permission.UPLOAD_CLAIMS,
+        Permission.SUBMIT_CLAIMS,
         Permission.GENERATE_APPEALS,
         Permission.SUBMIT_APPEALS,
         Permission.VIEW_ANALYTICS,
@@ -117,6 +119,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.VIEW_CLAIMS,
         Permission.EDIT_CLAIMS,
         Permission.UPLOAD_CLAIMS,
+        Permission.SUBMIT_CLAIMS,
         Permission.VIEW_ANALYTICS,
         Permission.ACCESS_COPILOT,
         Permission.VIEW_TASKS,

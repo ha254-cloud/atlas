@@ -95,6 +95,10 @@ class AuditAction(StrEnum):
     INTEGRATION_CREDENTIALS_ROTATED = "integration.credentials_rotated"
     INTEGRATION_SYNC_TRIGGERED = "integration.sync_triggered"
     INTEGRATION_DISCONNECTED = "integration.disconnected"
+    SHA_CLAIM_SUBMITTED = "sha_eclaim.submitted"
+    SHA_CLAIM_RESPONSE_RECEIVED = "sha_eclaim.response_received"
+    SHA_CLAIM_SUBMISSION_FAILED = "sha_eclaim.submission_failed"
+    SHA_CLAIM_STATUS_CHECK_FAILED = "sha_eclaim.status_check_failed"
 
     # API keys
     API_KEY_CREATED = "api_key.created"

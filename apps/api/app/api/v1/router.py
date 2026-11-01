@@ -20,6 +20,7 @@ from app.copilot.router import router as copilot_router
 from app.dashboard.router import router as dashboard_router
 from app.decisions.router import router as decisions_router
 from app.documents.router import router as documents_router
+from app.eclaims.router import router as eclaims_router
 from app.finance.router import router as finance_router
 from app.governance.router import router as governance_router
 from app.invoices.router import router as invoices_router
@@ -51,6 +52,7 @@ router.include_router(branches_router)
 router.include_router(copilot_router)
 router.include_router(appeals_router)
 router.include_router(documents_router)
+router.include_router(eclaims_router)
 router.include_router(dashboard_router)
 router.include_router(dashboard_summary_router)
 router.include_router(denial_codes_router)
