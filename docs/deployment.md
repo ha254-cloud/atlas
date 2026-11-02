@@ -162,7 +162,11 @@ Create one HCode **Web app** project from the GitHub repository with:
 HCode databases are private to one project. The test image therefore runs the
 API, Celery worker, and Celery scheduler together so they can share the same
 PostgreSQL and Redis services. A production deployment should separate those
-processes on infrastructure with an explicitly shared private network.
+processes on infrastructure with an explicitly shared private network. Keep
+both web and Celery concurrency at one on the 512 MB Developer runtime. The
+startup script uses that Celery default to avoid prefork memory pressure, and
+the domain-event beat schedule is covered by a registration test so it cannot
+enqueue an unknown task.
 
 Create one PostgreSQL 16 database and one Redis 7 database in the project, then
 attach their internal connection strings as secret `DATABASE_URL` and
@@ -177,6 +181,8 @@ SECRET_KEY=<random 32-byte-or-longer value>
 INTEGRATION_ENCRYPTION_KEY=<Fernet key>
 DOCUMENT_STORAGE_BACKEND=local
 DOCUMENT_MALWARE_SCAN_ENABLED=false
+WEB_CONCURRENCY=1
+CELERY_WORKER_CONCURRENCY=1
 COPILOT_ENABLED=false
 AI_PROVIDER=openai
 AI_MODEL=gpt-4.1

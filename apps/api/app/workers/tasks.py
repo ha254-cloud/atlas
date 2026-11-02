@@ -15,6 +15,22 @@ logger = logging.getLogger(__name__)
 register_event_handlers()
 
 
+@celery.task(name="tasks.dispatch_domain_events")
+def dispatch_domain_events():
+    """Publish the next batch of durable domain events."""
+    from app.db.database import get_db
+    from app.events.outbox import OutboxDispatcher
+
+    db = next(get_db())
+    try:
+        published = OutboxDispatcher(db).dispatch_batch()
+        if published:
+            logger.info("Published %s durable domain event(s)", published)
+        return {"published": published}
+    finally:
+        db.close()
+
+
 @celery.task(name="tasks.process_import")
 def process_import(job_id: int):
     """Process a queued import job by running the full import pipeline."""

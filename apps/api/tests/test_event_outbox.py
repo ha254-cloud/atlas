@@ -182,3 +182,37 @@ class TestOutboxDispatcher:
 
     def test_dispatch_one_returns_false_for_unknown_or_unavailable_event(self, db, org_id):
         assert OutboxDispatcher(db).dispatch_one(999999) is False
+
+
+def test_beat_outbox_task_is_registered():
+    from app.workers.celery_app import celery
+
+    celery.loader.import_default_modules()
+
+    task_name = celery.conf.beat_schedule["domain-event-outbox"]["task"]
+    assert task_name == "tasks.dispatch_domain_events"
+    assert task_name in celery.tasks
+
+
+def test_dispatch_domain_events_task_uses_and_closes_database_session(monkeypatch):
+    from app.workers.tasks import dispatch_domain_events
+
+    class FakeSession:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    class FakeDispatcher:
+        def __init__(self, db):
+            assert db is session
+
+        def dispatch_batch(self):
+            return 3
+
+    session = FakeSession()
+    monkeypatch.setattr("app.db.database.get_db", lambda: iter([session]))
+    monkeypatch.setattr("app.events.outbox.OutboxDispatcher", FakeDispatcher)
+
+    assert dispatch_domain_events.run() == {"published": 3}
+    assert session.closed is True

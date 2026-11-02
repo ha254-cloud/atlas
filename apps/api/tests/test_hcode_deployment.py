@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
@@ -6,6 +7,14 @@ from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings, settings
 from app.main import app
+
+
+def test_hcode_worker_defaults_to_one_process_for_developer_memory_limit():
+    script = (
+        Path(__file__).resolve().parents[1] / "scripts" / "start_hcode.sh"
+    ).read_text(encoding="utf-8")
+
+    assert '--concurrency="${CELERY_WORKER_CONCURRENCY:-1}"' in script
 
 
 def test_hcode_connection_urls_and_cors_are_supported():

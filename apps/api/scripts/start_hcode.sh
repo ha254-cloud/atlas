@@ -49,7 +49,7 @@ fi
 
 celery -A app.workers.celery_app.celery worker \
   --loglevel="${CELERY_LOG_LEVEL:-info}" \
-  --concurrency="${CELERY_WORKER_CONCURRENCY:-2}" &
+  --concurrency="${CELERY_WORKER_CONCURRENCY:-1}" &
 worker_pid=$!
 process_pids+=("$worker_pid")
 
