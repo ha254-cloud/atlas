@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AtlasMark } from "@/components/brand/atlas-mark";
 
 export default function AuthLayout({
@@ -29,12 +30,12 @@ export default function AuthLayout({
       <div className="relative mx-auto grid min-h-screen max-w-[1440px] lg:grid-cols-[minmax(360px,0.85fr)_minmax(520px,1.15fr)]">
         <aside className="relative hidden border-r border-[#17624b]/20 px-14 py-16 lg:flex lg:flex-col lg:justify-between">
           <div>
-            <div className="mb-20 flex items-center gap-3 text-[#17624b]">
+            <Link href="/" className="mb-20 flex items-center gap-3 text-[#17624b]">
               <AtlasMark className="h-8 w-8" />
               <span className="text-sm font-semibold uppercase tracking-[0.2em]">
                 Atlas Health Systems
               </span>
-            </div>
+            </Link>
 
             <div className="max-w-md border-t-4 border-[#17624b] pt-8">
               <p className="mb-5 text-xs font-semibold uppercase tracking-[0.24em] text-[#17624b]">

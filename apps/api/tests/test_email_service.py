@@ -62,6 +62,16 @@ def test_strict_email_requires_smtp_configuration(monkeypatch):
         )
 
 
+def test_verification_email_requires_smtp_configuration(monkeypatch):
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
+
+    with pytest.raises(EmailDeliveryError, match="not configured"):
+        EmailService().send_verification_email(
+            "admin@hospital.example",
+            "verification-token",
+        )
+
+
 def test_smtp_delivery_returns_message_id(monkeypatch):
     monkeypatch.setattr(settings, "SMTP_HOST", "mailpit")
     monkeypatch.setattr(settings, "SMTP_PORT", 1025)

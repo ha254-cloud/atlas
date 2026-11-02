@@ -21,8 +21,22 @@ from app.main import app
 @pytest.fixture(autouse=True)
 def disable_smtp_delivery(monkeypatch):
     from app.core.config import settings
+    from app.services.email_service import EmailService
+
+    def accept_verification_delivery(
+        service: EmailService,
+        recipient: str,
+        token: str,
+    ) -> str:
+        _ = (service, recipient, token)
+        return "<test-verification@atlas.local>"
 
     monkeypatch.setattr(settings, "SMTP_HOST", "")
+    monkeypatch.setattr(
+        EmailService,
+        "send_verification_email",
+        accept_verification_delivery,
+    )
 
 
 @pytest.fixture()
@@ -320,6 +334,33 @@ def test_registration_rolls_back_when_verification_email_fails(
         .first()
         is None
     )
+
+
+def test_registration_fails_closed_when_smtp_is_not_configured(
+    client,
+    db_session,
+    monkeypatch,
+):
+    from app.core.config import settings
+    from app.models.user import User
+
+    monkeypatch.undo()
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "organization_name": "No SMTP Hospital",
+            "first_name": "Email",
+            "last_name": "Required",
+            "email": "no-smtp@hospital.com",
+            "password": STRONG_PASSWORD,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Verification email delivery is temporarily unavailable"
+    assert db_session.query(User).filter(User.email == "no-smtp@hospital.com").first() is None
 
 
 def test_forgot_password_hides_delivery_failure_and_discards_token(

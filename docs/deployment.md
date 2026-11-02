@@ -74,6 +74,13 @@ SMTP_FROM_EMAIL=<verified-sender-address>
 SMTP_USE_TLS=true
 ```
 
+Public organization registration requires authenticated SMTP delivery. If
+`SMTP_HOST` is absent or the verification email cannot be accepted by the mail
+server, registration returns `503`, rolls back the pending organization and
+administrator, and shows an explicit delivery-unavailable message. Do not
+advertise self-service access until the verified sender domain and delivery
+path have passed an external inbox test.
+
 ### Web (`apps/web/.env.local`)
 
 ```
@@ -211,7 +218,8 @@ scanning remain disabled pending a rotated AI key and an external scanner.
 - [ ] Run `alembic upgrade head` as part of every deployment
 - [ ] Enable HTTPS — never run with plain HTTP in production
 - [ ] Configure CORS to allow only your frontend domain
-- [ ] Configure authenticated SMTP with a verified sender domain and test delivery, bounce, and outage behavior
+- [x] Provision authenticated SMTP, store its HCode password as a secret, publish MX/SPF/DKIM/DMARC, and verify authenticated local delivery
+- [ ] After backend deployment, verify Atlas registration delivery to an external inbox plus bounce and outage behavior
 - [ ] Restrict the document bucket to the API workload identity and deny public access
 - [ ] Monitor ClamAV health/signature freshness and alert on scanner-unavailable rejections
 - [ ] Verify clean, EICAR, quarantine-denial, S3 retrieval, and tenant-key isolation paths

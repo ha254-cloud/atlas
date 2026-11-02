@@ -11,6 +11,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        editorial: ["var(--font-editorial)", "Georgia", "serif"],
+        sans: ["var(--font-sans)", "Arial", "sans-serif"],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

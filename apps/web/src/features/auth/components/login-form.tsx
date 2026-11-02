@@ -51,10 +51,10 @@ export function LoginForm() {
     <div className="flex w-full items-center justify-center px-4 py-10 sm:px-6 lg:px-12">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2">
+          <Link href="/" aria-label="Return to Atlas home" className="flex items-center gap-2">
             <AtlasMark className="h-8 w-8 text-primary" />
-            <span className="text-3xl font-bold">Atlas</span>
-          </div>
+            <span className="font-editorial text-3xl font-bold">Atlas</span>
+          </Link>
           <p className="text-muted-foreground text-sm">
             Healthcare Revenue Recovery Platform
           </p>
@@ -123,9 +123,9 @@ export function LoginForm() {
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
-                Don&apos;t have an organization yet?{" "}
+                Need an Atlas workspace?{" "}
                 <Link href="/register" className="text-primary underline-offset-4 hover:underline">
-                  Sign up
+                  Create an organization
                 </Link>
               </p>
             </form>

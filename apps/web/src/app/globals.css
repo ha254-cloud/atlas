@@ -64,6 +64,9 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "kern" 1, "tnum" 1;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   ::selection {
     @apply bg-primary/15 text-foreground;
   }
@@ -76,5 +79,33 @@
       linear-gradient(hsl(var(--primary) / 0.022) 1px, transparent 1px),
       linear-gradient(90deg, hsl(var(--primary) / 0.022) 1px, transparent 1px);
     background-size: 36px 36px;
+  }
+
+  .atlas-public-surface {
+    background-image:
+      linear-gradient(rgba(23, 63, 51, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(23, 63, 51, 0.025) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  .atlas-ledger-grid {
+    background-image:
+      linear-gradient(rgba(23, 63, 51, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(23, 63, 51, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .public-nav-link {
+    @apply border-b border-transparent py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3f5149] transition-colors;
+  }
+
+  .public-nav-link:hover {
+    @apply border-[#8b3f35] text-[#17231f];
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

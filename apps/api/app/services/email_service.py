@@ -94,6 +94,7 @@ class EmailService:
             "Verify your Atlas account",
             f"Click to verify your email: {link}",
             "Verification email",
+            require_delivery=True,
         )
 
     def send_password_reset_email(self, to: str, token: str) -> str | None:
