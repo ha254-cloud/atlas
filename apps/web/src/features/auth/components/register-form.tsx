@@ -39,7 +39,11 @@ const journeySteps = [
   ["03", "Sign in and configure the workspace"],
 ];
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  registrationEnabled?: boolean;
+}
+
+export function RegisterForm({ registrationEnabled = true }: RegisterFormProps) {
   const searchParams = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(null);
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
@@ -87,7 +91,37 @@ export function RegisterForm() {
         </div>
 
         <Card className="overflow-hidden">
-          {submittedEmail ? (
+          {!registrationEnabled ? (
+            <CardContent
+              role="status"
+              aria-live="polite"
+              className="flex flex-col items-center gap-3 px-6 py-12 text-center"
+            >
+              <AtlasMark className="h-10 w-10 text-primary" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
+                Infrastructure maintenance
+              </p>
+              <CardTitle className="font-editorial text-3xl">
+                {title} is temporarily paused
+              </CardTitle>
+              <CardDescription className="max-w-md leading-6">
+                We are not creating organization records while the hosting provider
+                recovers the existing database storage. Contact the onboarding team
+                and we will follow up without claiming that an activation email was sent.
+              </CardDescription>
+              <Button asChild className="mt-3">
+                <a href="mailto:onboarding@atlashealth.ke?subject=Atlas%20access%20request">
+                  Email the onboarding team
+                </a>
+              </Button>
+              <Link
+                href="/"
+                className="mt-1 text-xs font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                Return to the Atlas website
+              </Link>
+            </CardContent>
+          ) : submittedEmail ? (
             <CardContent
               role="status"
               aria-live="polite"

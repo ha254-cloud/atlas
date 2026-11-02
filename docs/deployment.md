@@ -107,12 +107,18 @@ Build the upload directory from `apps/web`:
 
 ```powershell
 $env:NEXT_PUBLIC_API_URL = "https://api.atlashealth.ke"
+$env:NEXT_PUBLIC_REGISTRATION_ENABLED = "false"
 npm ci
 npm run build:static
 ```
 
 The command validates that the API URL is public HTTPS and creates
-`apps/web/out`. In FileZilla:
+`apps/web/out`. Keep `NEXT_PUBLIC_REGISTRATION_ENABLED=false` until the deployed
+backend's authenticated SMTP path passes an external-inbox test. The registration
+route then explains the maintenance boundary and routes requests to
+`onboarding@atlashealth.ke` without creating organization records. Rebuild with
+the value set to `true` only after registration delivery and rollback behavior are
+accepted. In FileZilla:
 
 1. Connect using SFTP or FTPS. Do not send credentials over plain FTP.
 2. Open the hosting account's `public_html` directory.
