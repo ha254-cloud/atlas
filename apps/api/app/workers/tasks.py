@@ -31,6 +31,85 @@ def dispatch_domain_events():
         db.close()
 
 
+@celery.task(
+    name="tasks.process_workflow_event",
+    bind=True,
+    max_retries=3,
+)
+def process_workflow_event(
+    self,
+    workflow_event_id: int,
+    organization_id: int,
+):
+    """Process one tenant-scoped durable workflow inbox event."""
+    from app.db.database import get_db
+    from app.workflows.engine import WorkflowEventEngine
+
+    db = next(get_db())
+    engine = WorkflowEventEngine(db, organization_id)
+    try:
+        execution_ids = asyncio.run(engine.process(workflow_event_id))
+        return {"executions": len(execution_ids)}
+    except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            engine.dead_letter(workflow_event_id, str(exc))
+            raise
+        raise self.retry(
+            exc=exc,
+            countdown=2**self.request.retries,
+        ) from exc
+    finally:
+        db.close()
+
+
+@celery.task(name="tasks.requeue_pending_workflow_events")
+def requeue_pending_workflow_events():
+    """Requeue tenant-scoped workflow inbox events left pending."""
+    from app.db.database import get_db
+    from app.models.organization import Organization
+    from app.workflows.repository import WorkflowRepository
+
+    db = next(get_db())
+    queued = 0
+    try:
+        organization_ids = [row[0] for row in db.query(Organization.id).all()]
+        for organization_id in organization_ids:
+            for event in WorkflowRepository(db, organization_id).pending_events():
+                process_workflow_event.delay(event.id, organization_id)
+                queued += 1
+        return {"queued": queued, "organizations": len(organization_ids)}
+    finally:
+        db.close()
+
+
+@celery.task(name="tasks.check_task_slas")
+def check_task_slas():
+    """Escalate overdue human tasks within each organization."""
+    from app.db.database import get_db
+    from app.models.organization import Organization
+    from app.tasks.scheduler import run_task_sla_sweep
+
+    db = next(get_db())
+    escalated = 0
+    try:
+        organization_ids = [row[0] for row in db.query(Organization.id).all()]
+        for organization_id in organization_ids:
+            try:
+                escalated += len(run_task_sla_sweep(db, organization_id))
+            except Exception:
+                logger.exception(
+                    "Could not run task SLA sweep for organization %s",
+                    organization_id,
+                )
+                db.rollback()
+        return {
+            "escalated": escalated,
+            "organizations": len(organization_ids),
+        }
+    finally:
+        db.close()
+
+
 @celery.task(name="tasks.process_import")
 def process_import(job_id: int):
     """Process a queued import job by running the full import pipeline."""

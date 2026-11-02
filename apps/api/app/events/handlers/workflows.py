@@ -39,18 +39,18 @@ class WorkflowTriggerHandler:
             db.add(event)
             db.commit()
             db.refresh(event)
-            self._dispatch(event.id)
+            self._dispatch(event.id, organization_id)
         except IntegrityError:
             db.rollback()
         finally:
             db.close()
 
     @staticmethod
-    def _dispatch(workflow_event_id: int) -> None:
+    def _dispatch(workflow_event_id: int, organization_id: int) -> None:
         try:
             from app.workers.tasks import process_workflow_event
 
-            process_workflow_event.delay(workflow_event_id)
+            process_workflow_event.delay(workflow_event_id, organization_id)
         except Exception:
             logger.exception(
                 "Workflow event %s persisted but could not be queued",

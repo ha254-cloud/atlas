@@ -93,11 +93,18 @@ def test_smtp_delivery_returns_message_id(monkeypatch):
 
 
 def test_configured_smtp_failure_is_explicit(monkeypatch):
+    messages = []
+
     def fail_to_connect(*args, **kwargs):
-        raise OSError("SMTP unavailable")
+        raise ConnectionRefusedError(111, "Connection refused")
 
     monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
     monkeypatch.setattr(smtplib, "SMTP", fail_to_connect)
+    monkeypatch.setattr(
+        email_service.logger,
+        "exception",
+        lambda message, *args: messages.append(message % args),
+    )
 
     with pytest.raises(EmailDeliveryError, match="Invitation email delivery failed"):
         EmailService().send_invitation_email(
@@ -105,3 +112,8 @@ def test_configured_smtp_failure_is_explicit(monkeypatch):
             "invite-token",
             "Nairobi Hospital",
         )
+
+    log_text = "\n".join(messages)
+    assert "ConnectionRefusedError (errno=111)" in log_text
+    assert "teammate@example.com" not in log_text
+    assert "t***@example.com" in log_text

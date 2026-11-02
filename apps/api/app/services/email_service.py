@@ -26,6 +26,14 @@ def _masked_email(address: str) -> str:
     return f"{local[:1]}***@{domain}"
 
 
+def _smtp_failure_detail(exc: smtplib.SMTPException | OSError) -> str:
+    if isinstance(exc, smtplib.SMTPResponseException):
+        return f"smtp_code={exc.smtp_code}"
+    if isinstance(exc, OSError) and exc.errno is not None:
+        return f"errno={exc.errno}"
+    return "no_transport_code"
+
+
 class EmailService:
     def _send(
         self,
@@ -72,9 +80,11 @@ class EmailService:
                 smtp.send_message(message)
         except (smtplib.SMTPException, OSError) as exc:
             logger.exception(
-                "Failed to send email (%s) to %s",
+                "Failed to send email (%s) to %s: %s (%s)",
                 stub_label,
                 _masked_email(to),
+                type(exc).__name__,
+                _smtp_failure_detail(exc),
             )
             raise EmailDeliveryError(f"{stub_label} delivery failed") from exc
 
