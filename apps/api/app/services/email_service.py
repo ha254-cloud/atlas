@@ -1,13 +1,14 @@
 """
-Transactional email sending. Sends real emails over SMTP when SMTP_HOST is
-configured (see app/core/config.py); otherwise falls back to metadata-only
-logging for tests and non-Docker development.
+Transactional email sending through configured HTTPS or SMTP transport.
 """
 
 import smtplib
+from base64 import b64encode
 from collections.abc import Sequence
 from email.message import EmailMessage
 from email.utils import make_msgid
+
+import httpx
 
 from app.core.config import settings
 from app.observability.logging import get_logger
@@ -35,15 +36,93 @@ def _smtp_failure_detail(exc: smtplib.SMTPException | OSError) -> str:
 
 
 class EmailService:
-    def _send(
+    def _send_postmark(
         self,
         to: str,
         subject: str,
         body: str,
         stub_label: str,
-        attachments: Sequence[tuple[str, bytes, str]] | None = None,
+        attachments: Sequence[tuple[str, bytes, str]] | None,
+    ) -> str:
+        payload = {
+            "From": settings.SMTP_FROM_EMAIL,
+            "To": to,
+            "Subject": subject,
+            "TextBody": body,
+            "MessageStream": settings.POSTMARK_MESSAGE_STREAM,
+            "Tag": stub_label.lower().replace(" ", "-"),
+            "TrackOpens": False,
+            "TrackLinks": "None",
+            "Attachments": [
+                {
+                    "Name": filename,
+                    "Content": b64encode(content).decode("ascii"),
+                    "ContentType": content_type,
+                }
+                for filename, content, content_type in attachments or []
+            ],
+        }
+        try:
+            response = httpx.post(
+                settings.POSTMARK_API_URL,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "X-Postmark-Server-Token": settings.POSTMARK_SERVER_TOKEN,
+                },
+                json=payload,
+                timeout=settings.EMAIL_DELIVERY_TIMEOUT_SECONDS,
+            )
+        except httpx.HTTPError as exc:
+            logger.exception(
+                "Postmark request failed for %s to %s: %s",
+                stub_label,
+                _masked_email(to),
+                type(exc).__name__,
+            )
+            raise EmailDeliveryError(f"{stub_label} delivery failed") from exc
+
+        try:
+            result = response.json()
+        except ValueError:
+            result = {}
+        error_code = result.get("ErrorCode")
+        if response.status_code != 200 or error_code != 0:
+            logger.error(
+                "Postmark rejected %s to %s: http_status=%s api_error_code=%s",
+                stub_label,
+                _masked_email(to),
+                response.status_code,
+                error_code,
+            )
+            raise EmailDeliveryError(f"{stub_label} delivery failed")
+
+        message_id = result.get("MessageID")
+        if not isinstance(message_id, str) or not message_id:
+            logger.error(
+                "Postmark accepted %s to %s without a message ID",
+                stub_label,
+                _masked_email(to),
+            )
+            raise EmailDeliveryError(f"{stub_label} delivery failed")
+
+        logger.info(
+            "Postmark accepted %s for %s with message ID %s",
+            stub_label,
+            _masked_email(to),
+            message_id,
+        )
+        return message_id
+
+    def _send_smtp(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        stub_label: str,
+        attachments: Sequence[tuple[str, bytes, str]] | None,
         *,
-        require_delivery: bool = False,
+        require_delivery: bool,
     ) -> str | None:
         if not settings.SMTP_HOST:
             if require_delivery:
@@ -53,7 +132,7 @@ class EmailService:
                 stub_label,
                 _masked_email(to),
             )
-            return
+            return None
 
         message = EmailMessage()
         message["Subject"] = subject
@@ -96,6 +175,33 @@ class EmailService:
             message_id,
         )
         return message_id
+
+    def _send(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        stub_label: str,
+        attachments: Sequence[tuple[str, bytes, str]] | None = None,
+        *,
+        require_delivery: bool = False,
+    ) -> str | None:
+        if settings.EMAIL_DELIVERY_PROVIDER == "postmark":
+            return self._send_postmark(
+                to,
+                subject,
+                body,
+                stub_label,
+                attachments,
+            )
+        return self._send_smtp(
+            to,
+            subject,
+            body,
+            stub_label,
+            attachments,
+            require_delivery=require_delivery,
+        )
 
     def send_verification_email(self, to: str, token: str) -> str | None:
         link = f"{settings.FRONTEND_URL}/verify-email?token={token}"

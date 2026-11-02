@@ -66,17 +66,24 @@ DOCUMENT_MALWARE_SCAN_TIMEOUT_SECONDS=10
 INTEGRATION_ENCRYPTION_KEY=<generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
 AI_PROVIDER=openai
 AI_MODEL=gpt-4.1
-SMTP_HOST=<authenticated-smtp-host>
+EMAIL_DELIVERY_PROVIDER=postmark
+EMAIL_DELIVERY_TIMEOUT_SECONDS=10
+POSTMARK_SERVER_TOKEN=<secret server token>
+POSTMARK_API_URL=https://api.postmarkapp.com/email
+POSTMARK_MESSAGE_STREAM=outbound
 SMTP_PORT=587
-SMTP_USER=<smtp-user>
-SMTP_PASSWORD=<smtp-password>
 SMTP_FROM_EMAIL=<verified-sender-address>
-SMTP_USE_TLS=true
 ```
 
-Public organization registration requires authenticated SMTP delivery. If
-`SMTP_HOST` is absent or the verification email cannot be accepted by the mail
-server, registration returns `503`, rolls back the pending organization and
+HCode blocks outbound SMTP ports 25, 465, 587, and 2525, so its deployment must
+use Postmark's HTTPS API on port 443. Keep `EMAIL_DELIVERY_PROVIDER=smtp` and
+the existing `SMTP_*` settings for Docker Compose/Mailpit or a host that permits
+SMTP. Postmark requires a verified sender signature or domain for
+`SMTP_FROM_EMAIL`.
+
+Public organization registration requires accepted transactional email
+delivery. If the configured transport is absent, unreachable, or rejects the
+message, registration returns `503`, rolls back the pending organization and
 administrator, and shows an explicit delivery-unavailable message. Do not
 advertise self-service access until the verified sender domain and delivery
 path have passed an external inbox test.

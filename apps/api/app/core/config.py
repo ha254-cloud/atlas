@@ -1,5 +1,6 @@
 from decimal import Decimal
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -72,9 +73,13 @@ class Settings(BaseSettings):
     # Used to build links in transactional emails (verification, invites, password reset)
     FRONTEND_URL: str = "http://localhost:3000"
 
-    # SMTP — when SMTP_HOST is unset, EmailService falls back to logging
-    # what would be sent (keeps auth flows fully testable without a real
-    # mail server configured).
+    # Transactional email. HCode blocks SMTP egress, so hosted deployments
+    # use Postmark's HTTPS API while Docker Compose keeps local SMTP/Mailpit.
+    EMAIL_DELIVERY_PROVIDER: Literal["smtp", "postmark"] = "smtp"
+    EMAIL_DELIVERY_TIMEOUT_SECONDS: float = 10.0
+    POSTMARK_SERVER_TOKEN: str = ""
+    POSTMARK_API_URL: str = "https://api.postmarkapp.com/email"
+    POSTMARK_MESSAGE_STREAM: str = "outbound"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
@@ -127,6 +132,11 @@ class Settings(BaseSettings):
                 )
         if not self.REDIS_URL and not self.REDIS_HOST:
             raise ValueError("Set REDIS_URL or REDIS_HOST")
+        if self.EMAIL_DELIVERY_PROVIDER == "postmark" and not self.POSTMARK_SERVER_TOKEN:
+            raise ValueError(
+                "POSTMARK_SERVER_TOKEN is required when "
+                "EMAIL_DELIVERY_PROVIDER=postmark"
+            )
 
         if self.APP_ENV == "production":
             if self.SEED_DEMO_DATA:
