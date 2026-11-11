@@ -83,24 +83,24 @@
 
   .atlas-public-surface {
     background-image:
-      linear-gradient(rgba(23, 63, 51, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(23, 63, 51, 0.025) 1px, transparent 1px);
+      linear-gradient(rgba(20, 93, 85, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20, 93, 85, 0.018) 1px, transparent 1px);
     background-size: 64px 64px;
   }
 
   .atlas-ledger-grid {
     background-image:
-      linear-gradient(rgba(23, 63, 51, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(23, 63, 51, 0.08) 1px, transparent 1px);
+      linear-gradient(rgba(20, 93, 85, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20, 93, 85, 0.035) 1px, transparent 1px);
     background-size: 28px 28px;
   }
 
   .public-nav-link {
-    @apply border-b border-transparent py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3f5149] transition-colors;
+    @apply border-b border-transparent py-1 text-xs font-bold uppercase tracking-[0.08em] text-[#315b54] transition-colors;
   }
 
   .public-nav-link:hover {
-    @apply border-[#8b3f35] text-[#17231f];
+    @apply border-[#b74a35] text-[#17332f];
   }
 }
 

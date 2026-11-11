@@ -27,6 +27,12 @@ test("homepage actions have explicit destinations and responsive behavior", asyn
   await expect(
     page.getByRole("heading", { name: "Recover revenue. Preserve trust." }),
   ).toBeVisible();
+  await expect(page.getByRole("list", { name: "Recovery journey stages" })).toBeVisible();
+  await expect(page.locator("canvas[aria-hidden='true']")).toBeVisible();
+  const evidenceStep = page.getByRole("button", { name: "03: Evidence assembled" });
+  await evidenceStep.click();
+  await expect(evidenceStep).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("status")).toContainText("Evidence assembled");
   await expect(page.locator('nav[aria-label="Primary navigation"]')).toHaveCount(1);
   await expect(page.getByRole("link", { name: "Sign in" }).first()).toHaveAttribute(
     "href",
